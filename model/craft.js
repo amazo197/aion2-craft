@@ -21,6 +21,7 @@ export const DEFAULTS = {
   succLow: 96, succMid: 80, succHigh: 70, succTop: 60,  // percent, by mastery tier
   askCap: 20,         // percent: ignore the ask when it sits more than this above the highest known trade
   minListings: 3,     // trust an ask only with at least this many listings
+  xserverMult: 3,     // cap an ask above this multiple of the cross-server median (0 = off)
 };
 
 // Highest price we have evidence actually traded: 28d max sale (where the game publishes it)
@@ -92,11 +93,24 @@ export function saleValue(k, ctx) {
   const h = history && history[k];
   if (P.priceBasis === 'low' && h && h.lo) v = Math.min(v, h.lo);
   if (P.priceBasis === 'high' && h && h.hi) v = h.hi;
-  // ask-cap rule: an ask more than askCap% above the highest known trade is not a price, use the trade
   const mt = maxTrade(k, ctx);
-  if (mt && row.p > mt * (1 + P.askCap)) v = Math.min(v, mt);
+  if (mt && row.p > mt * (1 + P.askCap)) {
+    // an ask more than askCap% above the highest known trade is not a price, use the trade
+    v = Math.min(v, mt);
+  } else {
+    // no trade evidence: fall back to the cross-server reference, which catches
+    // server-specific spikes (RMT/fake listings) on gear and accessories
+    const ref = ctx.ref && ctx.ref[k];
+    if (ref && P.xserverMult > 0 && v > ref * P.xserverMult) v = ref * P.xserverMult;
+  }
   if (isGreen(itemName(graph, prices, k))) v *= P.greenMult;
   return v;
+}
+
+// True when a no-evidence ask on this server dwarfs the cross-server reference.
+export function isOutlier(k, ctx) {
+  const row = ctx.prices[k], ref = ctx.ref && ctx.ref[k];
+  return !!(row && row.p != null && ref && ctx.P.xserverMult > 0 && !maxTrade(k, ctx) && row.p > ref * ctx.P.xserverMult);
 }
 
 // An ask is "thin" when it stands on its own: too few listings, no published
@@ -225,7 +239,7 @@ export function recipeCost(r, ctx) {
   return runRecipe(r, ctx, ctx.acq || new Map());
 }
 
-export function makeCtx(graph, prices, history, P) {
+export function makeCtx(graph, prices, history, P, ref) {
   // Candidate recipes per output, honouring the same mastery/profession limits
   // as evaluate(), so a cost route never assumes a craft the player cannot do.
   const byOut = new Map(), byCombo = new Map();
@@ -239,14 +253,14 @@ export function makeCtx(graph, prices, history, P) {
   }
   let rsKey = null;
   for (const [k, v] of Object.entries(prices)) if (v.name === 'Refining Stone') rsKey = k;
-  const ctx = { graph, prices, history, P, byOut, byCombo, rsKey, keep: 1 - P.tax - P.listFee };
+  const ctx = { graph, prices, history, P, byOut, byCombo, rsKey, keep: 1 - P.tax - P.listFee, ref: ref || null };
   ctx.acq = computeAcquire(ctx);
   return ctx;
 }
 
 // Evaluate every recipe. Returns rows sorted by profit per minute.
-export function evaluate(graph, prices, history, P) {
-  const ctx = makeCtx(graph, prices, history, P);
+export function evaluate(graph, prices, history, P, ref) {
+  const ctx = makeCtx(graph, prices, history, P, ref);
   const byKey = new Map();
   for (const [rid, r] of Object.entries(graph.recipes)) {
     if (!r.in || !r.in.length) continue;
@@ -260,6 +274,8 @@ export function evaluate(graph, prices, history, P) {
     if (!rc) continue;
     const s = successFor(r.ml, P), cp = (r.cp || 0) / 10000, outq = r.outq || 1;
     const plainV = (so || 0) * outq, greenV = sc == null ? plainV : sc;
+    // whichever part of the value drives EV decides whether the row is trustworthy
+    const driving = (cp > 0 && sc != null && cp * greenV > (1 - cp) * plainV) ? combo : out;
     const ev = s * ((1 - cp) * plainV + cp * greenV) * ctx.keep;
     const profit = ev - rc.cost;
     const mins = rc.mins + P.minPerCraft;
@@ -285,8 +301,9 @@ export function evaluate(graph, prices, history, P) {
       sharpe: rk.sigma > 0 ? profit / rk.sigma : null,
       maxTrade: maxTrade(combo || out, ctx), capped: isCapped(combo || out, ctx) || isCapped(out, ctx),
       crafts: rc.cost > 0 ? Math.floor(P.budget / rc.cost) : 0,
-      // Flag only when the value that drives EV comes from a thin book.
-      unverified: isThin((cp > 0 && sc != null && cp * greenV > (1 - cp) * plainV) ? combo : out, ctx),
+      // Flag only when the value that drives EV comes from a thin or spiked book.
+      unverified: isThin(driving, ctx) || isOutlier(driving, ctx),
+      outlier: isOutlier(driving, ctx),
     };
     // Same item+mastery can be produced by several recipes; keep the most profitable.
     const key = name + '|' + r.ml;

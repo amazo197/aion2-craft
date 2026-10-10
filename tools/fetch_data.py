@@ -148,6 +148,37 @@ def bake_prices(server):
     return out
 
 
+def bake_ref(servers):
+    """Cheapest ask per item across servers, as a cross-server reference.
+
+    RMT/fake listings inflate a price, never deflate it, so the lowest ask seen
+    on any server is the best estimate of the real price. The page caps an ask
+    that sits far above it. Needs at least two servers; lone-server items get no
+    reference and rely on the thin-book rule instead.
+    """
+    samples = {}
+    for s in servers:
+        path = os.path.join(DATA, f"prices_{s}.json")
+        if not os.path.exists(path):
+            continue
+        try:
+            prices = json.load(open(path, encoding="utf-8")).get("prices", {})
+        except Exception:
+            continue
+        for k, v in prices.items():
+            p = v.get("p")
+            if p:
+                samples.setdefault(k, []).append(p)
+    ref = {}
+    for k, ps in samples.items():
+        if len(ps) < 2:
+            continue
+        ref[k] = min(ps)
+    json.dump(ref, open(os.path.join(DATA, "ref.json"), "w"), separators=(",", ":"))
+    print(f"ref: {len(ref)} items with a cross-server reference")
+    return ref
+
+
 def cleared_band(points):
     """Infer what cleared from listing-count drops in 10-minute buckets.
 
@@ -238,6 +269,7 @@ def main():
                   open(os.path.join(DATA, f"prices_{s}.json"), "w"), separators=(",", ":"))
         meta["servers"][str(s)] = {"items": len(prices), "history": len(hist), "has_sales": any(v["sold"] for v in prices.values())}
         time.sleep(PAUSE)
+    bake_ref(cfg["servers"])
     json.dump(meta, open(os.path.join(DATA, "meta.json"), "w"), indent=1)
     print("done", meta)
 

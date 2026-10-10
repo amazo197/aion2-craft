@@ -36,6 +36,7 @@
         <label><span data-i18n="l_rs">Refining Stone override (0 = market)</span> <input id="rsOverride" type="number" min="0"></label>
         <label><span data-i18n="l_askcap">Ignore ask if > % above highest trade</span> <input id="askCap" type="number" min="0" max="500"></label>
         <label><span data-i18n="l_minlistings">Trust asks with at least N listings</span> <input id="minListings" type="number" min="1" max="20"></label>
+        <label><span data-i18n="l_xsrcmult">Cut ask above × cross-server median</span> <input id="xserverMult" type="number" min="0" max="100"></label>
         <div class="subh" data-i18n="h_you">You</div>
         <label><span data-i18n="l_minpercraft">Minutes per craft</span> <input id="minPerCraft" type="number" min="0.05" step="0.05"></label>
         <label><span data-i18n="l_budget">Budget (kina)</span> <input id="budget" type="number" min="0" step="100000"></label>
@@ -114,6 +115,6 @@ risk            = σ, chance of loss and CVaR10 over the {fail, plain, Splendent
     <p data-i18n="method_p3">Success rate is yours to set per mastery tier; Korean testing found ~95% on beginner recipes and ~65% on Dragon-King-tier recipes at matching mastery. A failed craft loses all materials. Bound NPC consumables (abrasive, catalyst, hardener, bottles) are costed at the NPC price input. Inputs bought from the market are priced at the higher of the cheapest ask and the cheapest ask that vanished in the window, so a lone low listing does not set the cost.</p>
   </details>
 </div>
-<script type="module" src="app.js?v=11"></script>
+<script type="module" src="app.js?v=12"></script>
 </body>
 </html>
