@@ -110,22 +110,24 @@ def bake_servers():
     return d
 
 
-def bake_prices(server):
+def bake_prices(server, limit=200):
     """Fetch every market page for a server.
 
     Returns None when the fetch is incomplete (a page failed, or fewer items
     came back than the API reported), so the caller can keep the previous
     bake instead of overwriting good data with a partial/empty result.
+    The API sometimes stalls on large responses, so main() retries with a
+    smaller page size.
     """
     items, off, expected = [], 0, None
     while True:
-        d = get(f"{EX}/items?sort=name&order=asc&window=24h&limit=200&offset={off}&server={server}")
+        d = get(f"{EX}/items?sort=name&order=asc&window=24h&limit={limit}&offset={off}&server={server}")
         if not d:
             break
         if expected is None:
             expected = d.get("total") or 0
         items += d.get("items") or []
-        off += 200
+        off += limit
         if off >= (d.get("total") or 0):
             break
         time.sleep(PAUSE)
@@ -241,6 +243,9 @@ def main():
             pass
     for s in servers:
         prices = bake_prices(s)
+        if not prices:
+            print(f"server {s}: large pages failed, retrying with small pages")
+            prices = bake_prices(s, limit=20)
         prev_path = os.path.join(DATA, f"prices_{s}.json")
         if not prices:
             if os.path.exists(prev_path):
