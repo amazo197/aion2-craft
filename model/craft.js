@@ -39,10 +39,12 @@ export function successFor(ml, P) {
 //   λ = 28d units sold / 28 (units/day),  W = (listings + 1) / λ
 // (a new listing competes with the n listings already on the book).
 export function daysToSell(k, ctx) {
-  const row = ctx.prices[k];
-  if (!row || !row.sold || row.sold <= 0) return null;
-  const perDay = row.sold / 28;
-  return ((row.n || 0) + 1) / perDay;
+  const row = ctx.prices[k], h = ctx.history && ctx.history[k];
+  let perDay = null;
+  if (row && row.sold > 0) perDay = row.sold / 28;                      // published 28d sales
+  else if (h && h.gone > 0 && h.hours > 0) perDay = h.gone / (h.hours / 24); // vanished listings as a proxy
+  if (!perDay || perDay <= 0) return null;
+  return ((row && row.n || 0) + 1) / perDay;
 }
 
 // Distribution statistics of the per-craft profit over its discrete outcomes.
@@ -112,60 +114,102 @@ export function buyPrice(k, ctx) {
   return null;
 }
 
-// Cheapest way to obtain one unit: buy, craft (plain output), or craft-combo (green output).
-// Returns {cost, mins, how, via} or null.
-export function acquire(k, ctx, depth = 0) {
-  const memo = ctx.memo;
-  const mk = k + '|' + (depth < 5);
-  if (memo.has(mk)) return memo.get(mk);
-  const { graph, P } = ctx;
-  let best = null;
+function buyCandidate(k, ctx) {
   const bp = buyPrice(k, ctx);
-  if (bp != null) best = { cost: bp, mins: 0, how: isNpcItem(graph, ctx.prices, k) ? 'npc' : 'buy', via: null };
-  if (depth < 5) {
-    for (const rid of ctx.byOut.get(k) || []) {
-      const r = graph.recipes[rid];
-      const rc = recipeCost(r, ctx, depth + 1);
-      if (!rc) continue;
-      const s = successFor(r.ml, P), cp = (r.cp || 0) / 10000, outq = r.outq || 1;
-      const denom = s * (1 - cp) * outq;
-      if (denom <= 0) continue;
-      const comboCredit = r.combo ? cp * (saleValue(String(r.combo), ctx) || 0) * ctx.keep : 0;
-      const perUnit = (rc.cost - s * comboCredit) / denom;
-      const mins = (rc.mins + P.minPerCraft) / denom;
-      if (perUnit >= 0 && (!best || perUnit < best.cost)) best = { cost: perUnit, mins, how: 'craft', via: rid };
-    }
-    for (const crid of ctx.byCombo.get(k) || []) {
-      const r = graph.recipes[crid];
-      const cp = (r.cp || 0) / 10000;
-      if (cp <= 0) continue;
-      const rc = recipeCost(r, ctx, depth + 1);
-      if (!rc) continue;
-      const s = successFor(r.ml, P);
-      const denom = s * cp;
-      if (denom <= 0) continue;
-      const plainCredit = (1 - cp) * (saleValue(String(r.out), ctx) || 0) * ctx.keep;
-      const perUnit = (rc.cost - s * plainCredit) / denom;
-      const mins = (rc.mins + P.minPerCraft) / denom;
-      if (perUnit >= 0 && (!best || perUnit < best.cost)) best = { cost: perUnit, mins, how: 'craft-combo', via: crid };
-    }
-  }
-  memo.set(mk, best);
-  return best;
+  if (bp == null) return null;
+  return { cost: bp, mins: 0, how: isNpcItem(ctx.graph, ctx.prices, k) ? 'npc' : 'buy', via: null };
 }
 
-export function recipeCost(r, ctx, depth = 0) {
+// Cheapest offer for an input: its current acquire value, or the alternative key.
+function cheapOffer(key, alt, ctx, acq) {
+  let best = acq.has(key) ? acq.get(key) : buyCandidate(key, ctx), used = key;
+  if (alt) {
+    const b = acq.has(alt) ? acq.get(alt) : buyCandidate(alt, ctx);
+    if (b && (!best || b.cost < best.cost)) { best = b; used = alt; }
+  }
+  return best ? { key: used, cost: best.cost, mins: best.mins, how: best.how, via: best.via } : null;
+}
+
+// Cost/mins of running recipe r, reading input prices from the acquire table.
+function runRecipe(r, ctx, acq) {
   let cost = r.gold || 0, mins = 0;
   const lines = [];
   for (const inp of r.in) {
     const k = String(inp[0]), qty = inp[1], alt = inp[2] ? String(inp[2]) : null;
-    let a = acquire(k, ctx, depth), used = k;
-    if (alt) { const b = acquire(alt, ctx, depth); if (b && (!a || b.cost < a.cost)) { a = b; used = alt; } }
+    const a = cheapOffer(k, alt, ctx, acq);
     if (!a) return null;
     cost += a.cost * qty; mins += a.mins * qty;
-    lines.push({ key: used, qty, unit: a.cost, how: a.how, via: a.via, mins: a.mins });
+    lines.push({ key: a.key, qty, unit: a.cost, how: a.how, via: a.via, mins: a.mins });
   }
   return { cost, mins, lines };
+}
+
+function plainOffer(rid, r, run, ctx) {
+  const P = ctx.P, s = successFor(r.ml, P), cp = (r.cp || 0) / 10000, outq = r.outq || 1;
+  const denom = s * (1 - cp) * outq;
+  if (denom <= 0) return null;
+  const comboCredit = r.combo ? cp * (saleValue(String(r.combo), ctx) || 0) * ctx.keep : 0;
+  const cost = (run.cost - s * comboCredit) / denom;
+  if (cost < 0) return null;
+  return { cost, mins: (run.mins + P.minPerCraft) / denom, how: 'craft', via: rid };
+}
+
+function comboOffer(rid, r, run, ctx) {
+  const P = ctx.P, cp = (r.cp || 0) / 10000;
+  if (cp <= 0) return null;
+  const s = successFor(r.ml, P), denom = s * cp;
+  if (denom <= 0) return null;
+  const plainCredit = (1 - cp) * (saleValue(String(r.out), ctx) || 0) * ctx.keep;
+  const cost = (run.cost - s * plainCredit) / denom;
+  if (cost < 0) return null;
+  return { cost, mins: (run.mins + P.minPerCraft) / denom, how: 'craft-combo', via: rid };
+}
+
+// Cheapest obtainable cost for every item, as a fixed point: relax each usable
+// recipe until no unit gets cheaper. Unlike the old depth-5 recursion this
+// prices arbitrarily long craft chains correctly. Costs only fall, so it stops.
+export function computeAcquire(ctx) {
+  const acq = new Map();
+  const keys = new Set([...ctx.byOut.keys(), ...ctx.byCombo.keys()]);
+  for (const r of Object.values(ctx.graph.recipes)) {
+    if (!r.in) continue;
+    for (const inp of r.in) { keys.add(String(inp[0])); if (inp[2]) keys.add(String(inp[2])); }
+  }
+  for (const k of keys) { const b = buyCandidate(k, ctx); if (b) acq.set(k, b); }
+  const usable = [];
+  for (const [rid, r] of Object.entries(ctx.graph.recipes)) {
+    if (!r.in || !r.in.length) continue;
+    if (r.ml > ctx.P.maxMastery) continue;
+    if (ctx.P.profession !== 'all' && r.p !== ctx.P.profession) continue;
+    usable.push([rid, r]);
+  }
+  for (let iter = 0; iter < 64; iter++) {
+    let changed = false;
+    for (const [rid, r] of usable) {
+      const run = runRecipe(r, ctx, acq);
+      if (!run) continue;
+      const outKey = String(r.out);
+      const po = plainOffer(rid, r, run, ctx);
+      if (po && !(acq.has(outKey) && acq.get(outKey).cost <= po.cost)) { acq.set(outKey, po); changed = true; }
+      if (r.combo) {
+        const cKey = String(r.combo);
+        const co = comboOffer(rid, r, run, ctx);
+        if (co && !(acq.has(cKey) && acq.get(cKey).cost <= co.cost)) { acq.set(cKey, co); changed = true; }
+      }
+    }
+    if (!changed) break;
+  }
+  return acq;
+}
+
+// Cheapest way to obtain one unit of k: buy, craft, or craft-via-combo.
+export function acquire(k, ctx) {
+  if (ctx.acq && ctx.acq.has(k)) return ctx.acq.get(k);
+  return buyCandidate(k, ctx);
+}
+
+export function recipeCost(r, ctx) {
+  return runRecipe(r, ctx, ctx.acq || new Map());
 }
 
 export function makeCtx(graph, prices, history, P) {
@@ -182,7 +226,9 @@ export function makeCtx(graph, prices, history, P) {
   }
   let rsKey = null;
   for (const [k, v] of Object.entries(prices)) if (v.name === 'Refining Stone') rsKey = k;
-  return { graph, prices, history, P, byOut, byCombo, rsKey, keep: 1 - P.tax - P.listFee, memo: new Map() };
+  const ctx = { graph, prices, history, P, byOut, byCombo, rsKey, keep: 1 - P.tax - P.listFee };
+  ctx.acq = computeAcquire(ctx);
+  return ctx;
 }
 
 // Evaluate every recipe. Returns rows sorted by profit per minute.
