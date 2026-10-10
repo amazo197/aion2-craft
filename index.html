@@ -38,6 +38,7 @@
         <div class="subh" data-i18n="h_you">You</div>
         <label><span data-i18n="l_minpercraft">Minutes per craft</span> <input id="minPerCraft" type="number" min="0.1" step="0.1"></label>
         <label><span data-i18n="l_budget">Budget (kina)</span> <input id="budget" type="number" min="0" step="100000"></label>
+        <label><span data-i18n="l_hours">Hours to spend (0 = no limit)</span> <input id="hours" type="number" min="0" step="1"></label>
         <div class="subh" data-i18n="h_success">Success rate % by recipe mastery</div>
         <label><span data-i18n="l_succ_low">≤ 50</span> <input id="succLow" type="number" min="1" max="100"></label>
         <label><span data-i18n="l_succ_mid">51–55</span> <input id="succMid" type="number" min="1" max="100"></label>
@@ -57,6 +58,7 @@
     <button class="mbtn on" id="tab-opps" onclick="setTab('opps')" data-i18n="tab_opps">Opportunities</button>
     <button class="mbtn" id="tab-recipe" onclick="setTab('recipe')" data-i18n="tab_recipe">Recipe</button>
     <button class="mbtn" id="tab-market" onclick="setTab('market')" data-i18n="tab_market">Market</button>
+    <button class="mbtn" id="tab-plan" onclick="setTab('plan')" data-i18n="tab_plan">Plan</button>
   </div>
 
   <section class="tab on" id="opps">
@@ -87,6 +89,11 @@
     <div class="scroll panel" style="padding:0;margin-top:8px"><table id="mktTable"></table></div>
   </section>
 
+  <section class="tab" id="plan">
+    <div class="row"><span class="small" data-i18n="plan_hint">Craft this mix for your budget and hours to maximise kina.</span><span class="small" id="planSummary"></span></div>
+    <div class="scroll panel" style="padding:0;margin-top:8px"><table id="planTable"></table></div>
+  </section>
+
   <details class="method">
     <summary data-i18n="methodology">Methodology</summary>
     <p data-i18n="method_p1">Recipes and icons come from the gamers4.life crafting graph. Prices are the cheapest current listing on aion2.exchange for the chosen server, refreshed hourly by a GitHub Action. 28-day sales statistics exist only where the game publishes them (materials, consumables, skins), so for gear and accessories the "cleared band" is inferred from listings that disappeared between 10-minute snapshots: the low end is the cheapest ask that vanished, the high end the next ask left standing. Disappearances include cancels and relists.</p>
@@ -103,6 +110,6 @@ risk            = σ, chance of loss and CVaR10 over the {fail, plain, Splendent
     <p data-i18n="method_p3">Success rate is yours to set per mastery tier; Korean testing found ~95% on beginner recipes and ~65% on Dragon-King-tier recipes at matching mastery. A failed craft loses all materials. Bound NPC consumables (abrasive, catalyst, hardener, bottles) are costed at the NPC price input. Inputs bought from the market are priced at the higher of the cheapest ask and the cheapest ask that vanished in the window, so a lone low listing does not set the cost.</p>
   </details>
 </div>
-<script type="module" src="app.js?v=6"></script>
+<script type="module" src="app.js?v=7"></script>
 </body>
 </html>

@@ -1,4 +1,4 @@
-import { DEFAULTS, evaluate, tree, itemName, maxTrade, isCapped } from './model/craft.js?v=6';
+import { DEFAULTS, evaluate, tree, plan, itemName, maxTrade, isCapped } from './model/craft.js?v=7';
 import { initI18n, setLang, getLang, t, tn, onLangChange } from './i18n.js?v=2';
 
 const $ = id => document.getElementById(id);
@@ -54,6 +54,7 @@ function readParams() {
     rsOverride: Math.max(0, num('rsOverride', 0)),
     minPerCraft: Math.max(0.1, num('minPerCraft', 1)),
     budget: Math.max(0, num('budget', 0)),
+    hours: Math.max(0, num('hours', 0)),
     succLow: num('succLow', 96) / 100, succMid: num('succMid', 80) / 100, succHigh: num('succHigh', 70) / 100, succTop: num('succTop', 60) / 100,
     askCap: Math.max(0, num('askCap', 20) / 100),
   };
@@ -127,7 +128,7 @@ function buildSectionOptions() {
 }
 
 function renderDynamic() {
-  renderMeta(); renderStatus(); buildSectionOptions(); renderOpps(); renderMarket(); if (SELECTED) renderRecipe(SELECTED);
+  renderMeta(); renderStatus(); buildSectionOptions(); renderOpps(); renderMarket(); renderPlan(); if (SELECTED) renderRecipe(SELECTED);
 }
 
 const COLS = [
@@ -213,6 +214,16 @@ window.recipeSuggest = () => {
   if (!q || !RESULT) { $('recipeSuggestions').innerHTML = ''; return; }
   const hits = RESULT.rows.filter(r => r.name.toLowerCase().includes(q)).slice(0, 12);
   $('recipeSuggestions').innerHTML = hits.map(r => `<button class="mbtn" onclick="pick('${r.rid}')">${esc(r.name)} <span class="dim">ml${r.ml}</span></button>`).join(' ');
+};
+
+window.renderPlan = () => {
+  if (!RESULT) return;
+  const p = plan(RESULT.rows, P.budget, P.hours);
+  $('planSummary').textContent = p.mix.length
+    ? t('plan_summary', { n: p.mix.length, profit: fmt(p.profit), mins: Math.round(p.mins), cost: fmt(p.cost) })
+    : t('plan_none');
+  $('planTable').innerHTML = `<tr><th>${t('c_recipe')}</th><th class="num">${t('plan_crafts')}</th><th class="num">${t('c_cost')}</th><th class="num">${t('c_mins')}</th><th class="num">${t('c_profit')}</th></tr>` +
+    p.mix.map(m => `<tr class="click" onclick="pick('${m.rid}')"><td><span class="name">${icon(m.out)}${esc(m.name)}</span><span class="pill">${esc(m.prof)}</span></td><td class="num">${m.x.toFixed(1)}</td><td class="num">${fmt(m.x * m.cost)}</td><td class="num">${fmt(m.x * m.mins)}</td><td class="num good">${fmt(m.x * m.profit)}</td></tr>`).join('');
 };
 
 window.renderMarket = () => {

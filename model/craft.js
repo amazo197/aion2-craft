@@ -16,6 +16,7 @@ export const DEFAULTS = {
   rsOverride: 0,      // 0 = use market
   minPerCraft: 1,
   budget: 5000000,
+  hours: 0,           // 0 = no time limit, plan by budget only
   succLow: 96, succMid: 80, succHigh: 70, succTop: 60,  // percent, by mastery tier
   askCap: 20,         // percent: ignore the ask when it sits more than this above the highest known trade
 };
@@ -281,6 +282,71 @@ export function evaluate(graph, prices, history, P) {
   const rows = [...byKey.values()];
   rows.sort((a, b) => b.ppm - a.ppm);
   return { rows, ctx };
+}
+
+// Optimal craft mix for a money and a time budget:
+//   max Σ profit_i · x_i  s.t.  Σ cost_i · x_i ≤ budget,  Σ mins_i · x_i ≤ hours,  x_i ≥ 0
+// Two constraints → at most two recipes are active; solved via the LP dual
+// (vertex enumeration), so it is exact and instant for ~100 rows.
+export function plan(rows, budget, hours, limit = 12) {
+  const res = { mix: [], profit: 0, cost: 0, mins: 0 };
+  const R = rows.filter(r => r.profit > 0 && r.cost > 0 && r.mins > 0);
+  if (!R.length || budget <= 0) return res;
+  const byBudgetAndTime = hours > 0;
+  const feasible = (u, v) => {
+    if (u < -1e-9 || v < -1e-9) return false;
+    for (const r of R) if (u * r.cost + v * r.mins < r.profit - 1e-6) return false;
+    return true;
+  };
+  // The dual of a maximise-with-≤ problem is a MINIMISATION, so pick the
+  // feasible dual vertex with the smallest objective.
+  let bu = 0, bv = 0, bobj = Infinity;
+  const consider = (u, v) => {
+    if (!feasible(u, v)) return;
+    const obj = budget * u + (byBudgetAndTime ? hours * v : 0);
+    if (obj < bobj - 1e-9) { bobj = obj; bu = u; bv = v; }
+  };
+  let ru = 0, rv = 0;
+  for (const r of R) { ru = Math.max(ru, r.profit / r.cost); rv = Math.max(rv, r.profit / r.mins); }
+  consider(ru, 0);
+  if (byBudgetAndTime) {
+    consider(0, rv);
+    for (let i = 0; i < R.length; i++) for (let j = i + 1; j < R.length; j++) {
+      const a = R[i], b = R[j];
+      const det = a.cost * b.mins - b.cost * a.mins;
+      if (Math.abs(det) < 1e-12) continue;
+      const u = (a.profit * b.mins - b.profit * a.mins) / det;
+      const v = (a.cost * b.profit - b.cost * a.profit) / det;
+      consider(u, v);
+    }
+  }
+  const mk = (r, x) => ({ rid: r.rid, out: r.out, name: r.name, prof: r.prof, ml: r.ml, x, cost: r.cost, mins: r.mins, profit: r.profit });
+  const mix = [];
+  if (!byBudgetAndTime || bv <= 1e-9) {                       // budget only
+    const r = R.reduce((a, b) => (b.profit / b.cost > a.profit / a.cost ? b : a));
+    mix.push(mk(r, budget / r.cost));
+  } else if (bu <= 1e-9) {                                     // time only
+    const r = R.reduce((a, b) => (b.profit / b.mins > a.profit / a.mins ? b : a));
+    mix.push(mk(r, hours / r.mins));
+  } else {                                                     // both are binding
+    const tight = R.filter(r => Math.abs(bu * r.cost + bv * r.mins - r.profit) < 1e-4);
+    let solved = false;
+    for (let i = 0; i < tight.length && !solved; i++) for (let j = i + 1; j < tight.length && !solved; j++) {
+      const a = tight[i], b = tight[j];
+      const det = a.cost * b.mins - b.cost * a.mins;
+      if (Math.abs(det) < 1e-9) continue;
+      const xi = (budget * b.mins - hours * b.cost) / det;
+      const xj = (a.cost * hours - a.mins * budget) / det;
+      if (xi >= -1e-6 && xj >= -1e-6) { mix.push(mk(a, Math.max(0, xi)), mk(b, Math.max(0, xj))); solved = true; }
+    }
+    if (!solved) {
+      const r = R.reduce((a, b) => (b.profit / b.mins > a.profit / a.mins ? b : a));
+      mix.push(mk(r, hours / r.mins));
+    }
+  }
+  res.mix = mix.filter(m => m.x > 1e-6).sort((a, b) => b.x * b.profit - a.x * a.profit).slice(0, limit);
+  for (const m of res.mix) { res.profit += m.x * m.profit; res.cost += m.x * m.cost; res.mins += m.x * m.mins; }
+  return res;
 }
 
 // Expand a recipe into a cost tree for display.
