@@ -1,4 +1,4 @@
-import { DEFAULTS, evaluate, tree, plan, itemName, maxTrade, isCapped } from './model/craft.js?v=9';
+import { DEFAULTS, evaluate, tree, plan, itemName, maxTrade, isCapped, isThin } from './model/craft.js?v=10';
 import { initI18n, setLang, getLang, t, tn, onLangChange } from './i18n.js?v=2';
 
 const $ = id => document.getElementById(id);
@@ -58,6 +58,7 @@ function readParams() {
     horizon: Math.max(0, num('horizon', 0)),
     succLow: num('succLow', 96) / 100, succMid: num('succMid', 80) / 100, succHigh: num('succHigh', 70) / 100, succTop: num('succTop', 60) / 100,
     askCap: Math.max(0, num('askCap', 20) / 100),
+    minListings: Math.max(1, num('minListings', 3)),
   };
 }
 window.resetDefaults = () => { setDefaultsToInputs(); recalc(); };
@@ -147,6 +148,7 @@ window.renderOpps = () => {
   if ($('onlyPositive').checked) rows = rows.filter(r => r.profit > 0);
   if ($('onlyListed').checked) rows = rows.filter(r => r.plainL > 0 || r.greenL > 0);
   if ($('onlyAfford').checked && P.budget > 0) rows = rows.filter(r => r.cost <= P.budget);
+  if ($('onlyVerified').checked) rows = rows.filter(r => !r.unverified);
   const minGone = parseInt($('minGone').value, 10) || 0;
   if (minGone > 0 && Object.keys(HISTORY).length) rows = rows.filter(r => (r.hist && r.hist.gone >= minGone));
   rows.sort((a, b) => { const x = a[sortKey], y = b[sortKey]; if (x == null) return 1; if (y == null) return -1; return (x > y ? 1 : x < y ? -1 : 0) * sortDir; });
@@ -155,7 +157,7 @@ window.renderOpps = () => {
   const body = rows.slice(0, 400).map(r => {
     const h = r.hist, band = h && h.lo ? `${fmt(h.lo)}–${fmt(h.hi)} <span class="dim">(${t('gone_h', { gone: h.gone, hours: h.hours })})</span>` : h ? `<span class="dim">${t('gone_h', { gone: h.gone, hours: h.hours })}</span>` : '';
     return `<tr class="click ${SELECTED === r.rid ? 'sel' : ''}" onclick="pick('${r.rid}')">
-      <td><span class="name">${icon(r.out)}${esc(r.name)}</span><span class="pill">${esc(r.prof)}</span>${r.combo ? `<span class="pill">→ ${nm(r.combo)}</span>` : ''}</td>
+      <td><span class="name">${icon(r.out)}${esc(r.name)}</span><span class="pill">${esc(r.prof)}</span>${r.combo ? `<span class="pill">→ ${nm(r.combo)}</span>` : ''}${r.unverified ? ` <span class="pill bad" title="${t('unverified_title')}">${t('unverified')}</span>` : ''}</td>
       <td class="num">${r.ml}</td><td class="num ${cls(r.ppm)}">${fmt(r.ppm)}</td><td class="num ${cls(r.profitDay)}">${fmt(r.profitDay)}</td><td class="num ${cls(r.profit)}">${fmt(r.profit)}</td><td class="num ${cls(r.roi)}">${pct(r.roi)}</td>
       <td class="num">${fmt(r.cost)}</td><td class="num">${fmt(r.ev)}</td><td class="num">${r.mins.toFixed(1)}</td><td class="num">${r.days == null ? '–' : r.days.toFixed(1)}</td><td class="num">${r.crafts}</td>
       <td class="num">${fmt(r.plain)}</td><td class="num dim">${r.plainL}</td><td class="num">${fmt(r.green)}${r.capped ? ` <span class="pill bad" title="${t('cap_title')}">${t('capped')}</span>` : ''}</td><td class="num dim">${r.greenL}</td><td class="num">${fmt(r.maxTrade)}</td><td>${band}</td><td class="num">${fmt(r.breakEvenGreen)}</td><td class="num">${r.beSuccess == null ? '–' : pct(r.beSuccess)}</td></tr>`;
@@ -178,6 +180,7 @@ function mktRow(k) {
     <div>${t('d28_sold')}</div><div>${v.sold ? t('sold_line', { sold: v.sold.toLocaleString(locale()), avg: fmt(v.avg), min: fmt(v.smin), max: fmt(v.smax) }) : `<span class="dim">${t('not_published')}</span>`}</div>
     <div>${t('cleared_band')}</div><div>${h ? (h.lo ? `${fmt(h.lo)}–${fmt(h.hi)}` : `<span class="dim">${t('no_priced_event')}</span>`) + ` <span class="dim">· ${t('hist_line', { gone: h.gone, hours: h.hours, low: fmt(h.low24), high: fmt(h.high24) })}</span>` : `<span class="dim">${t('no_history')}</span>`}</div>
     <div>${t('highest_trade')}</div><div>${fmt(maxTrade(k, RESULT.ctx))}${isCapped(k, RESULT.ctx) ? ` <span class="pill bad">${t('ask_capped')}</span>` : ''}</div>
+    ${isThin(k, RESULT.ctx) ? `<div class="bad">${t('unverified_title')}</div><div></div>` : ''}
   </div>`;
 }
 

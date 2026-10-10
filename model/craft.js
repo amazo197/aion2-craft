@@ -20,6 +20,7 @@ export const DEFAULTS = {
   horizon: 0,         // plan: market-absorption horizon in days (0 = off)
   succLow: 96, succMid: 80, succHigh: 70, succTop: 60,  // percent, by mastery tier
   askCap: 20,         // percent: ignore the ask when it sits more than this above the highest known trade
+  minListings: 3,     // trust an ask only with at least this many listings
 };
 
 // Highest price we have evidence actually traded: 28d max sale (where the game publishes it)
@@ -96,6 +97,16 @@ export function saleValue(k, ctx) {
   if (mt && row.p > mt * (1 + P.askCap)) v = Math.min(v, mt);
   if (isGreen(itemName(graph, prices, k))) v *= P.greenMult;
   return v;
+}
+
+// An ask is "thin" when it stands on its own: too few listings, no published
+// sales and no cleared-band history. RMT/fake listings live in exactly this gap.
+export function isThin(k, ctx) {
+  const row = ctx.prices[k], h = ctx.history && ctx.history[k];
+  if (!row || row.p == null) return false;
+  const hasSales = row.sold > 0;
+  const hasHist = !!(h && (h.tmax_ever || h.lo));
+  return !hasSales && !hasHist && (row.n || 0) < ctx.P.minListings;
 }
 
 export function isCapped(k, ctx) {
@@ -274,6 +285,8 @@ export function evaluate(graph, prices, history, P) {
       sharpe: rk.sigma > 0 ? profit / rk.sigma : null,
       maxTrade: maxTrade(combo || out, ctx), capped: isCapped(combo || out, ctx) || isCapped(out, ctx),
       crafts: rc.cost > 0 ? Math.floor(P.budget / rc.cost) : 0,
+      // Flag only when the value that drives EV comes from a thin book.
+      unverified: isThin((cp > 0 && sc != null && cp * greenV > (1 - cp) * plainV) ? combo : out, ctx),
     };
     // Same item+mastery can be produced by several recipes; keep the most profitable.
     const key = name + '|' + r.ml;
