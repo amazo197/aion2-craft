@@ -1,4 +1,4 @@
-import { DEFAULTS, evaluate, tree, plan, itemName, maxTrade, isCapped } from './model/craft.js?v=7';
+import { DEFAULTS, evaluate, tree, plan, itemName, maxTrade, isCapped } from './model/craft.js?v=8';
 import { initI18n, setLang, getLang, t, tn, onLangChange } from './i18n.js?v=2';
 
 const $ = id => document.getElementById(id);
@@ -55,6 +55,7 @@ function readParams() {
     minPerCraft: Math.max(0.1, num('minPerCraft', 1)),
     budget: Math.max(0, num('budget', 0)),
     hours: Math.max(0, num('hours', 0)),
+    horizon: Math.max(0, num('horizon', 0)),
     succLow: num('succLow', 96) / 100, succMid: num('succMid', 80) / 100, succHigh: num('succHigh', 70) / 100, succTop: num('succTop', 60) / 100,
     askCap: Math.max(0, num('askCap', 20) / 100),
   };
@@ -218,7 +219,7 @@ window.recipeSuggest = () => {
 
 window.renderPlan = () => {
   if (!RESULT) return;
-  const p = plan(RESULT.rows, P.budget, P.hours);
+  const p = plan(RESULT.rows, P.budget, P.hours, 12, P.horizon);
   $('planSummary').textContent = p.mix.length
     ? t('plan_summary', { n: p.mix.length, profit: fmt(p.profit), mins: Math.round(p.mins), cost: fmt(p.cost) })
     : t('plan_none');

@@ -17,6 +17,7 @@ export const DEFAULTS = {
   minPerCraft: 1,
   budget: 5000000,
   hours: 0,           // 0 = no time limit, plan by budget only
+  horizon: 0,         // plan: market-absorption horizon in days (0 = off)
   succLow: 96, succMid: 80, succHigh: 70, succTop: 60,  // percent, by mastery tier
   askCap: 20,         // percent: ignore the ask when it sits more than this above the highest known trade
 };
@@ -288,7 +289,7 @@ export function evaluate(graph, prices, history, P) {
 //   max Σ profit_i · x_i  s.t.  Σ cost_i · x_i ≤ budget,  Σ mins_i · x_i ≤ hours,  x_i ≥ 0
 // Two constraints → at most two recipes are active; solved via the LP dual
 // (vertex enumeration), so it is exact and instant for ~100 rows.
-export function plan(rows, budget, hours, limit = 12) {
+export function plan(rows, budget, hours, limit = 12, horizonDays = 0) {
   const res = { mix: [], profit: 0, cost: 0, mins: 0 };
   const R = rows.filter(r => r.profit > 0 && r.cost > 0 && r.mins > 0);
   if (!R.length || budget <= 0) return res;
@@ -322,13 +323,26 @@ export function plan(rows, budget, hours, limit = 12) {
   }
   const mk = (r, x) => ({ rid: r.rid, out: r.out, name: r.name, prof: r.prof, ml: r.ml, x, cost: r.cost, mins: r.mins, profit: r.profit });
   const mix = [];
-  if (!byBudgetAndTime || bv <= 1e-9) {                       // budget only
+  if (horizonDays > 0) {
+    // Market absorption: a recipe's output can only be sold as fast as the
+    // market clears it. cap = units absorbable over the horizon (1/days per day).
+    const eff = bv > bu ? (r => r.profit / r.mins) : (r => r.profit / r.cost);
+    const order = [...R].sort((a, b) => eff(b) - eff(a));
+    let remB = budget, remH = byBudgetAndTime ? hours : Infinity;
+    for (const r of order) {
+      const cap = r.days && r.days > 0 ? horizonDays / r.days : Infinity;
+      let x = Math.min(cap, remB / r.cost);
+      if (byBudgetAndTime) x = Math.min(x, remH / r.mins);
+      if (x > 1e-6) { mix.push(mk(r, x)); remB -= x * r.cost; remH -= x * r.mins; }
+      if (remB <= 1e-9 || (byBudgetAndTime && remH <= 1e-9)) break;
+    }
+  } else if (!byBudgetAndTime || bv <= 1e-9) {                // budget only
     const r = R.reduce((a, b) => (b.profit / b.cost > a.profit / a.cost ? b : a));
     mix.push(mk(r, budget / r.cost));
-  } else if (bu <= 1e-9) {                                     // time only
+  } else if (bu <= 1e-9) {                                    // time only
     const r = R.reduce((a, b) => (b.profit / b.mins > a.profit / a.mins ? b : a));
     mix.push(mk(r, hours / r.mins));
-  } else {                                                     // both are binding
+  } else {                                                    // both are binding
     const tight = R.filter(r => Math.abs(bu * r.cost + bv * r.mins - r.profit) < 1e-4);
     let solved = false;
     for (let i = 0; i < tight.length && !solved; i++) for (let j = i + 1; j < tight.length && !solved; j++) {
