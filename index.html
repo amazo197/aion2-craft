@@ -67,6 +67,7 @@
       <input class="search" id="oppSearch" data-i18n-ph="ph_filter_recipes" placeholder="filter recipe name…" oninput="renderOpps()">
       <label class="small"><input type="checkbox" id="onlyPositive" onchange="renderOpps()"> <span data-i18n="only_positive">profitable only</span></label>
       <label class="small"><input type="checkbox" id="onlyListed" checked onchange="renderOpps()"> <span data-i18n="only_listed">output has listings</span></label>
+      <label class="small"><input type="checkbox" id="onlyAfford" checked onchange="renderOpps()"> <span data-i18n="only_afford">within budget</span></label>
       <label class="small"><span data-i18n="min_units">min units cleared in window</span> <input id="minGone" type="number" value="1" min="0" style="width:60px" oninput="renderOpps()"></label>
       <span class="small" id="oppCount"></span>
     </div>
@@ -111,6 +112,6 @@ risk            = σ, chance of loss and CVaR10 over the {fail, plain, Splendent
     <p data-i18n="method_p3">Success rate is yours to set per mastery tier; Korean testing found ~95% on beginner recipes and ~65% on Dragon-King-tier recipes at matching mastery. A failed craft loses all materials. Bound NPC consumables (abrasive, catalyst, hardener, bottles) are costed at the NPC price input. Inputs bought from the market are priced at the higher of the cheapest ask and the cheapest ask that vanished in the window, so a lone low listing does not set the cost.</p>
   </details>
 </div>
-<script type="module" src="app.js?v=9"></script>
+<script type="module" src="app.js?v=10"></script>
 </body>
 </html>

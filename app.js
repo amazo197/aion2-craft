@@ -146,6 +146,7 @@ window.renderOpps = () => {
   let rows = RESULT.rows.filter(r => !q || r.name.toLowerCase().includes(q));
   if ($('onlyPositive').checked) rows = rows.filter(r => r.profit > 0);
   if ($('onlyListed').checked) rows = rows.filter(r => r.plainL > 0 || r.greenL > 0);
+  if ($('onlyAfford').checked && P.budget > 0) rows = rows.filter(r => r.cost <= P.budget);
   const minGone = parseInt($('minGone').value, 10) || 0;
   if (minGone > 0 && Object.keys(HISTORY).length) rows = rows.filter(r => (r.hist && r.hist.gone >= minGone));
   rows.sort((a, b) => { const x = a[sortKey], y = b[sortKey]; if (x == null) return 1; if (y == null) return -1; return (x > y ? 1 : x < y ? -1 : 0) * sortDir; });
