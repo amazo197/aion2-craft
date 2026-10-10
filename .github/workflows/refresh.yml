@@ -29,4 +29,6 @@ jobs:
             exit 0
           fi
           git commit -m "data: refresh $(date -u +%Y-%m-%dT%H:%MZ)"
+          # rebase in case another commit landed while we baked, so the push can't be rejected
+          git pull --rebase --autostash origin main
           git push
