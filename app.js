@@ -1,4 +1,4 @@
-import { DEFAULTS, evaluate, tree, plan, itemName, maxTrade, isCapped } from './model/craft.js?v=8';
+import { DEFAULTS, evaluate, tree, plan, itemName, maxTrade, isCapped } from './model/craft.js?v=9';
 import { initI18n, setLang, getLang, t, tn, onLangChange } from './i18n.js?v=2';
 
 const $ = id => document.getElementById(id);
@@ -52,7 +52,7 @@ function readParams() {
     listFee: Math.min(0.5, Math.max(0, num('listFee', 2) / 100)),
     npcPrice: Math.max(0, num('npcPrice', 400)),
     rsOverride: Math.max(0, num('rsOverride', 0)),
-    minPerCraft: Math.max(0.1, num('minPerCraft', 1)),
+    minPerCraft: Math.max(0.05, num('minPerCraft', 0.25)),
     budget: Math.max(0, num('budget', 0)),
     hours: Math.max(0, num('hours', 0)),
     horizon: Math.max(0, num('horizon', 0)),

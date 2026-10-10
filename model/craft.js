@@ -14,7 +14,7 @@ export const DEFAULTS = {
   greenMult: 100,     // percent of ask applied to Splendent/combo outputs
   priceBasis: 'low',  // ask | low | high  (cleared band from history when available, else ask)
   rsOverride: 0,      // 0 = use market
-  minPerCraft: 1,
+  minPerCraft: 0.25,  // minutes per craft (15s max in game)
   budget: 5000000,
   hours: 0,           // 0 = no time limit, plan by budget only
   horizon: 0,         // plan: market-absorption horizon in days (0 = off)
