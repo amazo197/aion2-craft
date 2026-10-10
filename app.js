@@ -1,5 +1,5 @@
-import { DEFAULTS, evaluate, tree, itemName, maxTrade, isCapped } from './model/craft.js?v=5';
-import { initI18n, setLang, getLang, t, tn, onLangChange } from './i18n.js?v=1';
+import { DEFAULTS, evaluate, tree, itemName, maxTrade, isCapped } from './model/craft.js?v=6';
+import { initI18n, setLang, getLang, t, tn, onLangChange } from './i18n.js?v=2';
 
 const $ = id => document.getElementById(id);
 let GRAPH = null, SERVERS = null, META = null, PRICES = {}, HISTORY = {}, P = { ...DEFAULTS }, RESULT = null, SELECTED = null;
