@@ -7,7 +7,7 @@ Sources:
 Usage: python tools/fetch_data.py [server_id ...]
 Default servers come from data/config.json.
 """
-import json, os, sys, time, urllib.request, urllib.error
+import concurrent.futures, json, os, sys, time, urllib.request, urllib.error
 from datetime import datetime, timedelta, timezone
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -32,11 +32,63 @@ def get(url, retries=3):
             time.sleep(1.5 * (i + 1))
 
 
-def icon_url(ic):
+def icon_paths(ic):
     if not ic:
-        return ""
+        return None, None
     folder, fn = ic.rsplit("/", 1)
-    return f"{ICON_BASE}{folder}/{fn.split('.')[0]}.webp"
+    rel = f"icons/{folder}/{fn.split('.')[0]}.webp"
+    return rel, f"{ICON_BASE}{folder}/{fn.split('.')[0]}.webp"
+
+
+def get_bytes(url, retries=3):
+    for i in range(retries):
+        try:
+            req = urllib.request.Request(url, headers=UA)
+            with urllib.request.urlopen(req, timeout=40) as r:
+                return r.read()
+        except (urllib.error.URLError, TimeoutError, OSError) as e:
+            if i == retries - 1:
+                print("FAIL", url, e)
+                return None
+            time.sleep(1.0 * (i + 1))
+
+
+def mirror_icons(g):
+    """Download icons missing from data/icons/ and point items at the local copy.
+
+    Serving icons from the site itself keeps the page working regardless of
+    gamers4.life hotlink/WAF behaviour in visitors' browsers.
+    """
+    rel_by_item, todo = {}, {}
+    for k, it in g["items"].items():
+        rel, url = icon_paths(it.get("ic", ""))
+        rel_by_item[k] = rel
+        if rel and not os.path.exists(os.path.join(DATA, rel)):
+            todo[rel] = url
+    done = 0
+    if todo:
+        print(f"icons: downloading {len(todo)}…")
+        with concurrent.futures.ThreadPoolExecutor(max_workers=6) as ex:
+            futs = {ex.submit(get_bytes, url): rel for rel, url in todo.items()}
+            for fut in concurrent.futures.as_completed(futs):
+                rel = futs[fut]
+                data = fut.result()
+                if data:
+                    path = os.path.join(DATA, rel)
+                    os.makedirs(os.path.dirname(path), exist_ok=True)
+                    with open(path, "wb") as f:
+                        f.write(data)
+                    done += 1
+    missing = 0
+    for k, it in g["items"].items():
+        rel = rel_by_item[k]
+        ok = bool(rel) and os.path.exists(os.path.join(DATA, rel))
+        it["icon"] = ("data/" + rel) if ok else ""
+        if rel and not ok:
+            missing += 1
+        it.pop("ic", None)
+    print(f"icons: downloaded {done}, still missing {missing}, local total {len(rel_by_item) - missing}")
+    return g
 
 
 def bake_graph():
@@ -44,9 +96,7 @@ def bake_graph():
     if not g:
         print("graph fetch failed, keeping existing data/graph.json")
         return json.load(open(os.path.join(DATA, "graph.json"), encoding="utf-8"))
-    for k, it in g["items"].items():
-        it["icon"] = icon_url(it.get("ic", ""))
-        it.pop("ic", None)
+    mirror_icons(g)
     json.dump(g, open(os.path.join(DATA, "graph.json"), "w", encoding="utf-8"), separators=(",", ":"))
     print("graph: items", len(g["items"]), "recipes", len(g["recipes"]))
     return g
