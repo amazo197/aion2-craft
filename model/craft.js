@@ -2,7 +2,7 @@
 // Inputs: graph (items, recipes, byProduct, byCombo), prices {key:{p,n,sold,avg,...}}, history {key:{lo,hi,gone,...}}, params.
 
 export const DEFAULTS = {
-  server: 11102,
+  server: 12302,
   profession: 'all',
   maxMastery: 55,
   tax: 10,            // percent sales tax at settlement
@@ -77,7 +77,8 @@ export function buyPrice(k, ctx) {
 // Returns {cost, mins, how, via} or null.
 export function acquire(k, ctx, depth = 0) {
   const memo = ctx.memo;
-  if (memo.has(k)) return memo.get(k);
+  const mk = k + '|' + (depth < 5);
+  if (memo.has(mk)) return memo.get(mk);
   const { graph, P } = ctx;
   let best = null;
   const bp = buyPrice(k, ctx);
@@ -111,7 +112,7 @@ export function acquire(k, ctx, depth = 0) {
       }
     }
   }
-  memo.set(k, best);
+  memo.set(mk, best);
   return best;
 }
 

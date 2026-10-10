@@ -5,12 +5,16 @@ on:
   workflow_dispatch:
 permissions:
   contents: write
+concurrency:
+  group: refresh-data
+  cancel-in-progress: false
 jobs:
   bake:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
       - run: python tools/fetch_data.py

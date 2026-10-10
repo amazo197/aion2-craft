@@ -1,6 +1,8 @@
 # Aion 2 Craft Market
 
-Which recipes pay, on your server, right now. Live at https://shizukaziye.github.io/aion2-craft/
+Which recipes pay, on your server, right now. Live at https://amazo197.github.io/aion2-craft/
+
+Fork of https://github.com/shizukaziye/aion2-craft.
 
 - Recipes and icons: the gamers4.life crafting graph (1,466 items, 2,442 recipes).
 - Prices: aion2.exchange cheapest listings per server, plus the 28-day sales statistics the game publishes for materials and consumables.

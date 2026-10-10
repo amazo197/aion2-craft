@@ -4,99 +4,101 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Aion 2 Craft Market</title>
-<link rel="stylesheet" href="styles.css?v=3">
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="styles.css?v=4">
 </head>
 <body>
 <div class="wrap">
   <header>
     <h1>Aion 2 Craft Market</h1>
-    <span class="meta" id="meta">loading…</span>
-    <span class="meta">recipes: <a href="https://gamers4.life/aion-2/database/en/crafting-calculator/" target="_blank" rel="noopener">gamers4.life</a> · prices: <a href="https://aion2.exchange/" target="_blank" rel="noopener">aion2.exchange</a></span>
+    <span class="meta" id="meta" data-i18n="loading">loading…</span>
+    <span class="meta"><span data-i18n="src_recipes">recipes:</span> <a href="https://gamers4.life/aion-2/database/en/crafting-calculator/" target="_blank" rel="noopener">gamers4.life</a> · <span data-i18n="src_prices">prices:</span> <a href="https://aion2.exchange/" target="_blank" rel="noopener">aion2.exchange</a></span>
+    <label class="langsel"><select id="lang" onchange="setLanguage(this.value)"><option value="en">EN</option><option value="ru">RU</option></select></label>
   </header>
 
   <div class="panel sticky">
-    <div class="tog" onclick="toggleInputs()"><b>Inputs</b><span id="togArrow">▸</span></div>
+    <div class="tog" onclick="toggleInputs()"><b data-i18n="inputs">Inputs</b><span id="togArrow">▸</span></div>
     <div id="inputs" style="display:none">
       <div class="ig">
-        <div class="subh">Market</div>
-        <label>Server <select id="server"></select></label>
-        <label>Profession <select id="profession">
-          <option value="all">All</option><option value="jewelcrafting">Handicrafting (jewelcrafting)</option>
-          <option value="blacksmithing">Blacksmithing</option><option value="tailoring">Armorsmithing (tailoring)</option>
-          <option value="alchemy">Alchemy</option><option value="cooking">Cooking</option></select></label>
-        <label>Max mastery (beginner 1-50, professional 51+) <input id="maxMastery" type="number" min="1" max="120"></label>
-        <label>Price basis <select id="priceBasis">
-          <option value="ask">Cheapest ask</option><option value="low">Cleared band low (conservative)</option><option value="high">Cleared band high</option></select></label>
-        <label>Splendent price × % <input id="greenMult" type="number" min="1" max="200"></label>
-        <label>Sales tax % <input id="tax" type="number" min="0" max="50"></label>
-        <label>Listing fee % (paid per listing, sold or not) <input id="listFee" type="number" min="0" max="50"></label>
-        <label>NPC consumable price (catalyst, abrasive…) <input id="npcPrice" type="number" min="0"></label>
-        <label>Refining Stone override (0 = market) <input id="rsOverride" type="number" min="0"></label>
-        <label>Ignore ask if > % above highest trade <input id="askCap" type="number" min="0" max="500"></label>
-        <div class="subh">You</div>
-        <label>Minutes per craft <input id="minPerCraft" type="number" min="0.1" step="0.1"></label>
-        <label>Budget (kina) <input id="budget" type="number" min="0" step="100000"></label>
-        <div class="subh">Success rate % by recipe mastery</div>
-        <label>≤ 50 <input id="succLow" type="number" min="1" max="100"></label>
-        <label>51–55 <input id="succMid" type="number" min="1" max="100"></label>
-        <label>56–70 <input id="succHigh" type="number" min="1" max="100"></label>
-        <label>71+ <input id="succTop" type="number" min="1" max="100"></label>
-        <label>Combo (Splendent) chance <input id="comboInfo" disabled value="from recipe (25% typical)"></label>
+        <div class="subh" data-i18n="h_market">Market</div>
+        <label><span data-i18n="l_server">Server</span> <select id="server"></select></label>
+        <label><span data-i18n="l_profession">Profession</span> <select id="profession">
+          <option value="all" data-i18n="prof_all">All</option><option value="jewelcrafting" data-i18n="prof_jewel">Handicrafting (jewelcrafting)</option>
+          <option value="blacksmithing" data-i18n="prof_black">Blacksmithing</option><option value="tailoring" data-i18n="prof_tailor">Armorsmithing (tailoring)</option>
+          <option value="alchemy" data-i18n="prof_alc">Alchemy</option><option value="cooking" data-i18n="prof_cook">Cooking</option></select></label>
+        <label><span data-i18n="l_maxmastery">Max mastery (beginner 1-50, professional 51+)</span> <input id="maxMastery" type="number" min="1" max="120"></label>
+        <label><span data-i18n="l_pricebasis">Price basis</span> <select id="priceBasis">
+          <option value="ask" data-i18n="pb_ask">Cheapest ask</option><option value="low" data-i18n="pb_low">Cleared band low (conservative)</option><option value="high" data-i18n="pb_high">Cleared band high</option></select></label>
+        <label><span data-i18n="l_greenmult">Splendent price × %</span> <input id="greenMult" type="number" min="1" max="200"></label>
+        <label><span data-i18n="l_tax">Sales tax %</span> <input id="tax" type="number" min="0" max="50"></label>
+        <label><span data-i18n="l_listfee">Listing fee % (paid per listing, sold or not)</span> <input id="listFee" type="number" min="0" max="50"></label>
+        <label><span data-i18n="l_npc">NPC consumable price (catalyst, abrasive…)</span> <input id="npcPrice" type="number" min="0"></label>
+        <label><span data-i18n="l_rs">Refining Stone override (0 = market)</span> <input id="rsOverride" type="number" min="0"></label>
+        <label><span data-i18n="l_askcap">Ignore ask if > % above highest trade</span> <input id="askCap" type="number" min="0" max="500"></label>
+        <div class="subh" data-i18n="h_you">You</div>
+        <label><span data-i18n="l_minpercraft">Minutes per craft</span> <input id="minPerCraft" type="number" min="0.1" step="0.1"></label>
+        <label><span data-i18n="l_budget">Budget (kina)</span> <input id="budget" type="number" min="0" step="100000"></label>
+        <div class="subh" data-i18n="h_success">Success rate % by recipe mastery</div>
+        <label><span data-i18n="l_succ_low">≤ 50</span> <input id="succLow" type="number" min="1" max="100"></label>
+        <label><span data-i18n="l_succ_mid">51–55</span> <input id="succMid" type="number" min="1" max="100"></label>
+        <label><span data-i18n="l_succ_high">56–70</span> <input id="succHigh" type="number" min="1" max="100"></label>
+        <label><span data-i18n="l_succ_top">71+</span> <input id="succTop" type="number" min="1" max="100"></label>
+        <label><span data-i18n="l_comboinfo">Combo (Splendent) chance</span> <input id="comboInfo" disabled data-i18n-value="from_recipe" value="from recipe (25% typical)"></label>
       </div>
       <div class="row">
-        <button class="primary" onclick="recalc()">Recalculate</button>
-        <button onclick="resetDefaults()">Reset defaults</button>
+        <button class="primary" onclick="recalc()" data-i18n="btn_recalc">Recalculate</button>
+        <button onclick="resetDefaults()" data-i18n="btn_reset">Reset defaults</button>
         <span class="small" id="status"></span>
       </div>
     </div>
   </div>
 
   <div class="tabs">
-    <button class="mbtn on" id="tab-opps" onclick="setTab('opps')">Opportunities</button>
-    <button class="mbtn" id="tab-recipe" onclick="setTab('recipe')">Recipe</button>
-    <button class="mbtn" id="tab-market" onclick="setTab('market')">Market</button>
+    <button class="mbtn on" id="tab-opps" onclick="setTab('opps')" data-i18n="tab_opps">Opportunities</button>
+    <button class="mbtn" id="tab-recipe" onclick="setTab('recipe')" data-i18n="tab_recipe">Recipe</button>
+    <button class="mbtn" id="tab-market" onclick="setTab('market')" data-i18n="tab_market">Market</button>
   </div>
 
   <section class="tab on" id="opps">
     <div class="row">
-      <input class="search" id="oppSearch" placeholder="filter recipe name…" oninput="renderOpps()">
-      <label class="small"><input type="checkbox" id="onlyPositive" onchange="renderOpps()"> profitable only</label>
-      <label class="small"><input type="checkbox" id="onlyListed" checked onchange="renderOpps()"> output has listings</label>
-      <label class="small">min units cleared in window <input id="minGone" type="number" value="1" min="0" style="width:60px" oninput="renderOpps()"></label>
+      <input class="search" id="oppSearch" data-i18n-ph="ph_filter_recipes" placeholder="filter recipe name…" oninput="renderOpps()">
+      <label class="small"><input type="checkbox" id="onlyPositive" onchange="renderOpps()"> <span data-i18n="only_positive">profitable only</span></label>
+      <label class="small"><input type="checkbox" id="onlyListed" checked onchange="renderOpps()"> <span data-i18n="only_listed">output has listings</span></label>
+      <label class="small"><span data-i18n="min_units">min units cleared in window</span> <input id="minGone" type="number" value="1" min="0" style="width:60px" oninput="renderOpps()"></label>
       <span class="small" id="oppCount"></span>
     </div>
     <div class="scroll panel" style="padding:0;margin-top:8px"><table id="oppTable"></table></div>
   </section>
 
   <section class="tab" id="recipe">
-    <div class="row"><input class="search" id="recipeSearch" placeholder="search item to craft…" oninput="recipeSuggest()"><div id="recipeSuggestions" class="small"></div></div>
+    <div class="row"><input class="search" id="recipeSearch" data-i18n-ph="ph_search_item" placeholder="search item to craft…" oninput="recipeSuggest()"><div id="recipeSuggestions" class="small"></div></div>
     <div class="two" style="margin-top:10px">
-      <div class="panel" id="recipeDetail">Pick a recipe from Opportunities or search above.</div>
+      <div class="panel" id="recipeDetail" data-i18n="pick_recipe">Pick a recipe from Opportunities or search above.</div>
       <div class="panel" id="recipeMarket"></div>
     </div>
   </section>
 
   <section class="tab" id="market">
     <div class="row">
-      <input class="search" id="mktSearch" placeholder="filter item…" oninput="renderMarket()">
-      <select id="mktSection" onchange="renderMarket()"><option value="">all sections</option></select>
+      <input class="search" id="mktSearch" data-i18n-ph="ph_filter_item" placeholder="filter item…" oninput="renderMarket()">
+      <select id="mktSection" onchange="renderMarket()"><option value="" data-i18n="all_sections">all sections</option></select>
       <span class="small" id="mktCount"></span>
     </div>
     <div class="scroll panel" style="padding:0;margin-top:8px"><table id="mktTable"></table></div>
   </section>
 
   <details class="method">
-    <summary>Methodology</summary>
-    <p>Recipes and icons come from the gamers4.life crafting graph. Prices are the cheapest current listing on aion2.exchange for the chosen server, refreshed hourly by a GitHub Action. 28-day sales statistics exist only where the game publishes them (materials, consumables, skins), so for gear and accessories the "cleared band" is inferred from listings that disappeared between 10-minute snapshots: the low end is the cheapest ask that vanished, the high end the next ask left standing. Disappearances include cancels and relists.</p>
-    <div class="formula">cost   = recipe fee + Σ qty × cheapest(buy, craft, craft-via-combo) for each input
+    <summary data-i18n="methodology">Methodology</summary>
+    <p data-i18n="method_p1">Recipes and icons come from the gamers4.life crafting graph. Prices are the cheapest current listing on aion2.exchange for the chosen server, refreshed hourly by a GitHub Action. 28-day sales statistics exist only where the game publishes them (materials, consumables, skins), so for gear and accessories the "cleared band" is inferred from listings that disappeared between 10-minute snapshots: the low end is the cheapest ask that vanished, the high end the next ask left standing. Disappearances include cancels and relists.</p>
+    <div class="formula" data-i18n="method_formula">cost   = recipe fee + Σ qty × cheapest(buy, craft, craft-via-combo) for each input
 EV     = success × [ (1 − combo) × plain price × outq + combo × Splendent price ] × (1 − tax − listing fee)
 profit = EV − cost        profit/min = profit ÷ (own-craft minutes of inputs + minutes per craft)
 Splendent via own crafting = (attempt cost − success × (1−combo) × plain value × (1−tax−fee)) ÷ (success × combo)
 break-even Splendent     = (cost ÷ (success × (1−tax−fee)) − (1−combo) × plain) ÷ combo</div>
-    <p><b>Ask cap.</b> The cheapest ask is only used as a sale price when it sits within the cap (default 20%) of the highest known trade. The highest known trade is the 28-day maximum sale where the game publishes one, otherwise the highest ask that has ever vanished from the book, carried forward across bakes. Above the cap the item is valued at that trade instead, and the row is marked <span class="pill bad">capped</span>.</p>
-    <p>Success rate is yours to set per mastery tier; Korean testing found ~95% on beginner recipes and ~65% on Dragon-King-tier recipes at matching mastery. A failed craft loses all materials. Bound NPC consumables (abrasive, catalyst, hardener, bottles) are costed at the NPC price input. Inputs bought from the market are priced at the higher of the cheapest ask and the cheapest ask that vanished in the window, so a lone low listing does not set the cost.</p>
+    <p data-i18n-html="method_p2"><b>Ask cap.</b> The cheapest ask is only used as a sale price when it sits within the cap (default 20%) of the highest known trade. The highest known trade is the 28-day maximum sale where the game publishes one, otherwise the highest ask that has ever vanished from the book, carried forward across bakes. Above the cap the item is valued at that trade instead, and the row is marked <span class="pill bad">capped</span>.</p>
+    <p data-i18n="method_p3">Success rate is yours to set per mastery tier; Korean testing found ~95% on beginner recipes and ~65% on Dragon-King-tier recipes at matching mastery. A failed craft loses all materials. Bound NPC consumables (abrasive, catalyst, hardener, bottles) are costed at the NPC price input. Inputs bought from the market are priced at the higher of the cheapest ask and the cheapest ask that vanished in the window, so a lone low listing does not set the cost.</p>
   </details>
 </div>
-<script type="module" src="app.js?v=4"></script>
+<script type="module" src="app.js?v=5"></script>
 </body>
 </html>

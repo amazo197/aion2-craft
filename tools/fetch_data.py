@@ -12,7 +12,7 @@ from datetime import datetime, timedelta, timezone
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA = os.path.join(ROOT, "data")
-UA = {"User-Agent": "Mozilla/5.0 (aion2-craft bake; github.com/shizukaziye/aion2-craft)"}
+UA = {"User-Agent": "Mozilla/5.0 (aion2-craft bake; github.com/amazo197/aion2-craft)"}
 EX = "https://aion2.exchange/api"
 GRAPH_URL = "https://gamers4.life/aion-2/database/crafting-graph.json"
 ICON_BASE = "https://gamers4.life/aion-2/database/icons"
