@@ -224,7 +224,10 @@ window.recipeSuggest = () => {
 
 window.renderPlan = () => {
   if (!RESULT) return;
-  const p = plan(RESULT.rows, P.budget, P.hours, 12, P.horizon);
+  // plan only over trustworthy, sellable recipes: no thin/spike asks, and the
+  // output must actually have listings (the Opportunity checkboxes don't apply here)
+  const rows = RESULT.rows.filter(r => !r.unverified && (r.plainL > 0 || r.greenL > 0));
+  const p = plan(rows, P.budget, P.hours, 12, P.horizon);
   $('planSummary').textContent = p.mix.length
     ? t('plan_summary', { n: p.mix.length, profit: fmt(p.profit), mins: Math.round(p.mins), cost: fmt(p.cost) })
     : t('plan_none');
