@@ -3,6 +3,7 @@
 const DICT = {
   en: {
     loading: 'loading…',
+    load_error: 'Could not load data — check your connection and reload.',
     src_recipes: 'recipes:',
     src_prices: 'prices:',
     inputs: 'Inputs',
@@ -128,6 +129,7 @@ const DICT = {
   },
   ru: {
     loading: 'загрузка…',
+    load_error: 'Не удалось загрузить данные — проверь соединение и обнови страницу.',
     src_recipes: 'рецепты:',
     src_prices: 'цены:',
     inputs: 'Параметры',

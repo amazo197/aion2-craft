@@ -15,7 +15,6 @@ export const DEFAULTS = {
   budget: 5000000,
   succLow: 96, succMid: 80, succHigh: 70, succTop: 60,  // percent, by mastery tier
   askCap: 20,         // percent: ignore the ask when it sits more than this above the highest known trade
-  minListings: 1,
 };
 
 // Highest price we have evidence actually traded: 28d max sale (where the game publishes it)
@@ -35,6 +34,13 @@ export function successFor(ml, P) {
 
 export function itemName(graph, prices, k) {
   return (graph.items[k] && graph.items[k].n) || (prices[k] && prices[k].name) || k;
+}
+
+const BOUND_RE = /\(Bound\)/i;
+// Bound items cannot be traded, so they are costed at the NPC price input.
+// The name suffix is the reliable signal (prefixed keys only cover part of them).
+export function isNpcItem(graph, prices, k) {
+  return BOUND_RE.test(itemName(graph, prices, k)) || k.startsWith('630') || k.startsWith('631');
 }
 
 export function isGreen(name) { return /Splendent/.test(name); }
@@ -69,7 +75,7 @@ export function buyPrice(k, ctx) {
     const h = ctx.history && ctx.history[k];
     return h && h.lo ? Math.max(row.p, h.lo) : row.p;
   }
-  if (k.startsWith('630')) return P.npcPrice; // bound NPC consumables
+  if (isNpcItem(ctx.graph, ctx.prices, k)) return P.npcPrice; // bound NPC consumables
   return null;
 }
 
@@ -82,7 +88,7 @@ export function acquire(k, ctx, depth = 0) {
   const { graph, P } = ctx;
   let best = null;
   const bp = buyPrice(k, ctx);
-  if (bp != null) best = { cost: bp, mins: 0, how: k.startsWith('630') ? 'npc' : 'buy', via: null };
+  if (bp != null) best = { cost: bp, mins: 0, how: isNpcItem(graph, ctx.prices, k) ? 'npc' : 'buy', via: null };
   if (depth < 5) {
     for (const rid of ctx.byOut.get(k) || []) {
       const r = graph.recipes[rid];
@@ -171,6 +177,7 @@ export function evaluate(graph, prices, history, P) {
       roi: rc.cost ? (ev - rc.cost) / rc.cost : 0, out, combo, cp, s,
       plain: pr.p ?? null, plainL: pr.n || 0, plainSold: pr.sold || 0, green: pc.p ?? null, greenL: pc.n || 0, greenSold: pc.sold || 0,
       hist: history && (history[combo || out] || null), breakEvenGreen, lines: rc.lines,
+      bandLo: (history && history[combo || out] && history[combo || out].lo) || null,
       maxTrade: maxTrade(combo || out, ctx), capped: isCapped(combo || out, ctx) || isCapped(out, ctx),
       crafts: rc.cost > 0 ? Math.floor(P.budget / rc.cost) : 0,
     };

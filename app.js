@@ -6,7 +6,8 @@ let GRAPH = null, SERVERS = null, META = null, PRICES = {}, HISTORY = {}, P = { 
 let sortKey = 'ppm', sortDir = -1;
 let LAST_STATUS = null;
 
-const fmt = n => n == null || isNaN(n) ? '–' : Math.abs(n) >= 1e6 ? (n / 1e6).toFixed(2) + 'M' : Math.abs(n) >= 1e4 ? (n / 1e3).toFixed(1) + 'k' : Math.round(n).toLocaleString(getLang());
+const locale = () => getLang() === 'ru' ? 'ru-RU' : 'en-US';
+const fmt = n => n == null || isNaN(n) ? '–' : Math.abs(n) >= 1e6 ? (n / 1e6).toFixed(2) + 'M' : Math.abs(n) >= 1e4 ? (n / 1e3).toFixed(1) + 'k' : Math.round(n).toLocaleString(locale());
 const pct = n => n == null || isNaN(n) ? '–' : (n * 100).toFixed(0) + '%';
 const cls = n => n > 0 ? 'good' : n < 0 ? 'bad' : '';
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -132,7 +133,7 @@ function renderDynamic() {
 const COLS = [
   ['name', 'c_recipe', false], ['ml', 'c_ml', true], ['ppm', 'c_ppm', true], ['profit', 'c_profit', true], ['roi', 'c_roi', true],
   ['cost', 'c_cost', true], ['ev', 'c_ev', true], ['mins', 'c_mins', true], ['crafts', 'c_crafts', true],
-  ['plain', 'c_plain', true], ['plainL', 'c_plainL', true], ['green', 'c_green', true], ['greenL', 'c_greenL', true], ['maxTrade', 'c_maxtrade', true], ['band', 'c_band', false], ['breakEvenGreen', 'c_beGreen', true],
+  ['plain', 'c_plain', true], ['plainL', 'c_plainL', true], ['green', 'c_green', true], ['greenL', 'c_greenL', true], ['maxTrade', 'c_maxtrade', true], ['bandLo', 'c_band', false], ['breakEvenGreen', 'c_beGreen', true],
 ];
 window.sortBy = k => { if (sortKey === k) sortDir = -sortDir; else { sortKey = k; sortDir = -1; } renderOpps(); };
 
@@ -170,7 +171,7 @@ function mktRow(k) {
   const h = HISTORY[k];
   return `<div class="kv">
     <div>${t('ask')}</div><div>${fmt(v.p)} <span class="dim">${t('n_listings', { n: v.n })}</span></div>
-    <div>${t('d28_sold')}</div><div>${v.sold ? t('sold_line', { sold: v.sold.toLocaleString(getLang()), avg: fmt(v.avg), min: fmt(v.smin), max: fmt(v.smax) }) : `<span class="dim">${t('not_published')}</span>`}</div>
+    <div>${t('d28_sold')}</div><div>${v.sold ? t('sold_line', { sold: v.sold.toLocaleString(locale()), avg: fmt(v.avg), min: fmt(v.smin), max: fmt(v.smax) }) : `<span class="dim">${t('not_published')}</span>`}</div>
     <div>${t('cleared_band')}</div><div>${h ? (h.lo ? `${fmt(h.lo)}–${fmt(h.hi)}` : `<span class="dim">${t('no_priced_event')}</span>`) + ` <span class="dim">· ${t('hist_line', { gone: h.gone, hours: h.hours, low: fmt(h.low24), high: fmt(h.high24) })}</span>` : `<span class="dim">${t('no_history')}</span>`}</div>
     <div>${t('highest_trade')}</div><div>${fmt(maxTrade(k, RESULT.ctx))}${isCapped(k, RESULT.ctx) ? ` <span class="pill bad">${t('ask_capped')}</span>` : ''}</div>
   </div>`;
@@ -215,16 +216,30 @@ window.renderMarket = () => {
   const craftable = new Set([...RESULT.ctx.byOut.keys(), ...RESULT.ctx.byCombo.keys()]);
   const ridFor = k => (RESULT.ctx.byOut.get(k) || RESULT.ctx.byCombo.get(k) || [])[0];
   $('mktTable').innerHTML = `<tr><th>${t('m_item')}</th><th>${t('m_category')}</th><th class="num">${t('ask')}</th><th class="num">L</th><th class="num">${t('m_chg')}</th><th class="num">${t('m_sold28')}</th><th class="num">${t('m_avg')}</th><th>${t('cleared_band')}</th><th>${t('m_craft')}</th></tr>` +
-    rows.slice(0, 600).map(([k, v]) => { const h = HISTORY[k]; return `<tr><td><span class="name">${icon(k)}${esc(v.name)}</span></td><td class="dim">${esc(v.cat)}</td><td class="num">${fmt(v.p)}</td><td class="num dim">${v.n}</td><td class="num ${cls(v.chg)}">${v.chg == null ? '–' : v.chg.toFixed(0) + '%'}</td><td class="num">${v.sold ? v.sold.toLocaleString(getLang()) : '<span class="dim">–</span>'}</td><td class="num">${fmt(v.avg)}</td><td>${h && h.lo ? `${fmt(h.lo)}–${fmt(h.hi)} <span class="dim">(${t('gone_h', { gone: h.gone, hours: h.hours })})</span>` : h ? `<span class="dim">${t('gone_h', { gone: h.gone, hours: h.hours })}</span>` : ''}</td><td>${craftable.has(k) ? `<button class="mbtn" onclick="pick('${ridFor(k)}')">${t('recipe_btn')}</button>` : ''}</td></tr>`; }).join('');
+    rows.slice(0, 600).map(([k, v]) => { const h = HISTORY[k]; return `<tr><td><span class="name">${icon(k)}${esc(v.name)}</span></td><td class="dim">${esc(v.cat)}</td><td class="num">${fmt(v.p)}</td><td class="num dim">${v.n}</td><td class="num ${cls(v.chg)}">${v.chg == null ? '–' : v.chg.toFixed(0) + '%'}</td><td class="num">${v.sold ? v.sold.toLocaleString(locale()) : '<span class="dim">–</span>'}</td><td class="num">${fmt(v.avg)}</td><td>${h && h.lo ? `${fmt(h.lo)}–${fmt(h.hi)} <span class="dim">(${t('gone_h', { gone: h.gone, hours: h.hours })})</span>` : h ? `<span class="dim">${t('gone_h', { gone: h.gone, hours: h.hours })}</span>` : ''}</td><td>${craftable.has(k) ? `<button class="mbtn" onclick="pick('${ridFor(k)}')">${t('recipe_btn')}</button>` : ''}</td></tr>`; }).join('');
 };
+
+async function loadJson(url, cache) {
+  const r = await fetch(url, cache ? { cache } : undefined);
+  if (!r.ok) throw new Error(url + ' → HTTP ' + r.status);
+  return r.json();
+}
 
 async function init() {
   initI18n();
-  [GRAPH, SERVERS, META] = await Promise.all([
-    fetch('data/graph.json').then(r => r.json()),
-    fetch('data/servers.json').then(r => r.json()).catch(() => ({ servers: [] })),
-    fetch('data/meta.json', { cache: 'no-cache' }).then(r => r.json()).catch(() => ({ servers: {} })),
-  ]);
+  try {
+    [GRAPH, SERVERS, META] = await Promise.all([
+      loadJson('data/graph.json'),
+      loadJson('data/servers.json').catch(() => ({ servers: [] })),
+      loadJson('data/meta.json', 'no-cache').catch(() => ({ servers: {} })),
+    ]);
+    if (!GRAPH || !GRAPH.items || !GRAPH.recipes) throw new Error('graph.json: unexpected shape');
+  } catch (e) {
+    const el = $('meta');
+    el.textContent = t('load_error');
+    el.title = String((e && e.message) || e);
+    return;
+  }
   buildServerOptions();
   setDefaultsToInputs();
   loadParams();
