@@ -23,5 +23,10 @@ jobs:
           git config user.name "aion2-craft bot"
           git config user.email "bot@users.noreply.github.com"
           git add data
-          git diff --cached --quiet || git commit -m "data: refresh $(date -u +%Y-%m-%dT%H:%MZ)"
+          # meta.json's baked_at changes every run; only commit when real data moved
+          if git diff --cached --quiet -- data ':!data/meta.json'; then
+            echo "no data changes, skipping commit"
+            exit 0
+          fi
+          git commit -m "data: refresh $(date -u +%Y-%m-%dT%H:%MZ)"
           git push

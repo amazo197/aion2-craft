@@ -149,8 +149,13 @@ def bake_prices(server):
 
 
 def cleared_band(points):
-    """Infer what cleared from listing-count drops in 10-minute buckets."""
-    gone, lows, highs, events = 0, [], [], 0
+    """Infer what cleared from listing-count drops in 10-minute buckets.
+
+    Each drop pairs the vanished ask (la) with the next ask left standing (lb).
+    The reported band is the cheapest such pair, so lo and hi describe the same
+    event instead of the union of every event in the window.
+    """
+    gone, events, pairs = 0, 0, []
     for a, b in zip(points, points[1:]):
         drop = (a.get("listings_max") or a.get("listings") or 0) - (b.get("listings_min") or b.get("listings") or 0)
         if drop > 0:
@@ -158,11 +163,11 @@ def cleared_band(points):
             events += 1
             la, lb = a.get("low"), b.get("low")
             if la and lb and lb > la * 1.001:
-                lows.append(la)
-                highs.append(lb)
+                pairs.append((la, lb))
+    lo, hi = min(pairs, key=lambda p: p[0]) if pairs else (None, None)
     # tmax = highest ask that vanished in this window (best evidence of a real trade price)
-    return {"gone": gone, "events": events, "lo": min(lows) if lows else None, "hi": max(highs) if highs else None,
-            "tmax": max(lows) if lows else None, "hours": round(len(points) * 10 / 60, 1)}
+    return {"gone": gone, "events": events, "lo": lo, "hi": hi,
+            "tmax": max((p[0] for p in pairs), default=None), "hours": round(len(points) * 10 / 60, 1)}
 
 
 def bake_history(server, keys, hours=24):
