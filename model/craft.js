@@ -1,6 +1,9 @@
 // Pure crafting-economics model. No DOM access in here.
 // Inputs: graph (items, recipes, byProduct, byCombo), prices {key:{p,n,sold,avg,...}}, history {key:{lo,hi,gone,...}}, params.
 
+// DEFAULTS is in the *input field* units (percent, kina) used to seed the form.
+// readParams() in app.js converts them to the fractions the model expects
+// (tax 0.10, succLow 0.96, …). Pass fractions to evaluate()/makeCtx(), never DEFAULTS directly.
 export const DEFAULTS = {
   server: 12302,
   profession: 'all',
@@ -30,6 +33,36 @@ export function successFor(ml, P) {
   if (ml <= 55) return P.succMid;
   if (ml <= 70) return P.succHigh;
   return P.succTop;
+}
+
+// Expected days to sell one unit. Little's law on the item's market:
+//   λ = 28d units sold / 28 (units/day),  W = (listings + 1) / λ
+// (a new listing competes with the n listings already on the book).
+export function daysToSell(k, ctx) {
+  const row = ctx.prices[k];
+  if (!row || !row.sold || row.sold <= 0) return null;
+  const perDay = row.sold / 28;
+  return ((row.n || 0) + 1) / perDay;
+}
+
+// Distribution statistics of the per-craft profit over its discrete outcomes.
+// outcomes: array of [probability, value].
+export function risk(outcomes) {
+  const total = outcomes.reduce((a, o) => a + o[0], 0) || 1;
+  const norm = outcomes.map(([p, v]) => [p / total, v]);
+  const mean = norm.reduce((a, [p, v]) => a + p * v, 0);
+  const variance = norm.reduce((a, [p, v]) => a + p * (v - mean) * (v - mean), 0);
+  const sigma = Math.sqrt(Math.max(0, variance));
+  const probLoss = norm.filter(([, v]) => v < 0).reduce((a, [p]) => a + p, 0);
+  // CVaR 10%: mean of the worst 10% of the distribution
+  const sorted = [...norm].sort((a, b) => a[1] - b[1]);
+  let need = 0.1, acc = 0, wsum = 0;
+  for (const [p, v] of sorted) {
+    if (need <= 0) break;
+    const take = Math.min(p, need);
+    acc += take * v; wsum += take; need -= take;
+  }
+  return { mean, sigma, probLoss, cvar10: wsum > 0 ? acc / wsum : null };
 }
 
 export function itemName(graph, prices, k) {
@@ -169,15 +202,28 @@ export function evaluate(graph, prices, history, P) {
     const s = successFor(r.ml, P), cp = (r.cp || 0) / 10000, outq = r.outq || 1;
     const plainV = (so || 0) * outq, greenV = sc == null ? plainV : sc;
     const ev = s * ((1 - cp) * plainV + cp * greenV) * ctx.keep;
+    const profit = ev - rc.cost;
     const mins = rc.mins + P.minPerCraft;
     const breakEvenGreen = cp > 0 ? (rc.cost / (s * ctx.keep) - (1 - cp) * plainV) / cp : null;
+    // Break-even success: the s* at which EV equals cost (independent of s).
+    const valueV = (1 - cp) * plainV + cp * greenV;
+    const beSuccess = valueV > 0 && ctx.keep > 0 ? rc.cost / (valueV * ctx.keep) : null;
+    // Turnover and risk.
+    const days = daysToSell(out, ctx);
+    const rk = risk((cp > 0 && sc != null)
+      ? [[1 - s, -rc.cost], [s * (1 - cp), plainV * ctx.keep - rc.cost], [s * cp, greenV * ctx.keep - rc.cost]]
+      : [[1 - s, -rc.cost], [s, plainV * ctx.keep - rc.cost]]);
     const pr = prices[out] || {}, pc = combo ? (prices[combo] || {}) : {};
     const row = {
-      rid, name, prof: r.p, ml: r.ml, cost: rc.cost, ev, profit: ev - rc.cost, mins, ppm: (ev - rc.cost) / mins,
-      roi: rc.cost ? (ev - rc.cost) / rc.cost : 0, out, combo, cp, s,
+      rid, name, prof: r.p, ml: r.ml, cost: rc.cost, ev, profit, mins, ppm: profit / mins,
+      roi: rc.cost ? profit / rc.cost : 0, out, combo, cp, s,
       plain: pr.p ?? null, plainL: pr.n || 0, plainSold: pr.sold || 0, green: pc.p ?? null, greenL: pc.n || 0, greenSold: pc.sold || 0,
       hist: history && (history[combo || out] || null), breakEvenGreen, lines: rc.lines,
       bandLo: (history && history[combo || out] && history[combo || out].lo) || null,
+      days, profitDay: days ? profit / days : null,
+      roiDay: days && rc.cost ? (profit / rc.cost) / days : null,
+      beSuccess, sigma: rk.sigma, probLoss: rk.probLoss, cvar10: rk.cvar10,
+      sharpe: rk.sigma > 0 ? profit / rk.sigma : null,
       maxTrade: maxTrade(combo || out, ctx), capped: isCapped(combo || out, ctx) || isCapped(out, ctx),
       crafts: rc.cost > 0 ? Math.floor(P.budget / rc.cost) : 0,
     };

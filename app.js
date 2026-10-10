@@ -131,9 +131,10 @@ function renderDynamic() {
 }
 
 const COLS = [
-  ['name', 'c_recipe', false], ['ml', 'c_ml', true], ['ppm', 'c_ppm', true], ['profit', 'c_profit', true], ['roi', 'c_roi', true],
-  ['cost', 'c_cost', true], ['ev', 'c_ev', true], ['mins', 'c_mins', true], ['crafts', 'c_crafts', true],
-  ['plain', 'c_plain', true], ['plainL', 'c_plainL', true], ['green', 'c_green', true], ['greenL', 'c_greenL', true], ['maxTrade', 'c_maxtrade', true], ['bandLo', 'c_band', false], ['breakEvenGreen', 'c_beGreen', true],
+  ['name', 'c_recipe', false], ['ml', 'c_ml', true], ['ppm', 'c_ppm', true], ['profitDay', 'c_profitDay', true],
+  ['profit', 'c_profit', true], ['roi', 'c_roi', true], ['cost', 'c_cost', true], ['ev', 'c_ev', true],
+  ['mins', 'c_mins', true], ['days', 'c_days', true], ['crafts', 'c_crafts', true],
+  ['plain', 'c_plain', true], ['plainL', 'c_plainL', true], ['green', 'c_green', true], ['greenL', 'c_greenL', true], ['maxTrade', 'c_maxtrade', true], ['bandLo', 'c_band', false], ['breakEvenGreen', 'c_beGreen', true], ['beSuccess', 'c_beSuccess', true],
 ];
 window.sortBy = k => { if (sortKey === k) sortDir = -sortDir; else { sortKey = k; sortDir = -1; } renderOpps(); };
 
@@ -152,9 +153,9 @@ window.renderOpps = () => {
     const h = r.hist, band = h && h.lo ? `${fmt(h.lo)}–${fmt(h.hi)} <span class="dim">(${t('gone_h', { gone: h.gone, hours: h.hours })})</span>` : h ? `<span class="dim">${t('gone_h', { gone: h.gone, hours: h.hours })}</span>` : '';
     return `<tr class="click ${SELECTED === r.rid ? 'sel' : ''}" onclick="pick('${r.rid}')">
       <td><span class="name">${icon(r.out)}${esc(r.name)}</span><span class="pill">${esc(r.prof)}</span>${r.combo ? `<span class="pill">→ ${nm(r.combo)}</span>` : ''}</td>
-      <td class="num">${r.ml}</td><td class="num ${cls(r.ppm)}">${fmt(r.ppm)}</td><td class="num ${cls(r.profit)}">${fmt(r.profit)}</td><td class="num ${cls(r.roi)}">${pct(r.roi)}</td>
-      <td class="num">${fmt(r.cost)}</td><td class="num">${fmt(r.ev)}</td><td class="num">${r.mins.toFixed(1)}</td><td class="num">${r.crafts}</td>
-      <td class="num">${fmt(r.plain)}</td><td class="num dim">${r.plainL}</td><td class="num">${fmt(r.green)}${r.capped ? ` <span class="pill bad" title="${t('cap_title')}">${t('capped')}</span>` : ''}</td><td class="num dim">${r.greenL}</td><td class="num">${fmt(r.maxTrade)}</td><td>${band}</td><td class="num">${fmt(r.breakEvenGreen)}</td></tr>`;
+      <td class="num">${r.ml}</td><td class="num ${cls(r.ppm)}">${fmt(r.ppm)}</td><td class="num ${cls(r.profitDay)}">${fmt(r.profitDay)}</td><td class="num ${cls(r.profit)}">${fmt(r.profit)}</td><td class="num ${cls(r.roi)}">${pct(r.roi)}</td>
+      <td class="num">${fmt(r.cost)}</td><td class="num">${fmt(r.ev)}</td><td class="num">${r.mins.toFixed(1)}</td><td class="num">${r.days == null ? '–' : r.days.toFixed(1)}</td><td class="num">${r.crafts}</td>
+      <td class="num">${fmt(r.plain)}</td><td class="num dim">${r.plainL}</td><td class="num">${fmt(r.green)}${r.capped ? ` <span class="pill bad" title="${t('cap_title')}">${t('capped')}</span>` : ''}</td><td class="num dim">${r.greenL}</td><td class="num">${fmt(r.maxTrade)}</td><td>${band}</td><td class="num">${fmt(r.breakEvenGreen)}</td><td class="num">${r.beSuccess == null ? '–' : pct(r.beSuccess)}</td></tr>`;
   }).join('');
   $('oppTable').innerHTML = head + body;
 };
@@ -192,7 +193,14 @@ function renderRecipe(rid) {
       <div>${t('expected_value')}</div><div>${fmt(r.ev)} <span class="dim">${t('ev_at', { s: pct(s), tax: pct(P.tax), fee: pct(P.listFee) })}</span></div>
       <div>${t('profit_per_craft')}</div><div class="${cls(r.profit)}">${fmt(r.profit)} <span class="dim">(${pct(r.roi)} ROI)</span></div>
       <div>${t('profit_per_min')}</div><div class="${cls(r.ppm)}">${fmt(r.ppm)} <span class="dim">${t('mins_incl', { m: r.mins.toFixed(1) })}</span></div>
+      <div>${t('days_to_sell')}</div><div>${r.days == null ? '–' : r.days.toFixed(1) + ' ' + t('days_unit')}</div>
+      <div>${t('profit_per_day')}</div><div class="${cls(r.profitDay)}">${fmt(r.profitDay)}</div>
+      <div>${t('roi_per_day')}</div><div class="${cls(r.roiDay)}">${r.roiDay == null ? '–' : pct(r.roiDay)}</div>
       ${combo ? `<div>${t('breakeven_green')}</div><div>${fmt(r.breakEvenGreen)}</div>` : ''}
+      <div>${t('breakeven_success')}</div><div>${r.beSuccess == null ? '–' : pct(r.beSuccess)} <span class="dim">(${t('your_success', { s: pct(s) })})</span></div>
+      <div>${t('risk_sigma')}</div><div>${fmt(r.sigma)} <span class="dim">${t('sharpe_of', { v: r.sharpe == null ? '–' : r.sharpe.toFixed(2) })}</span></div>
+      <div>${t('prob_loss')}</div><div>${r.probLoss == null ? '–' : pct(r.probLoss)}</div>
+      <div>${t('cvar')}</div><div class="${cls(r.cvar10)}">${fmt(r.cvar10)}</div>
       <div>${t('crafts_budget')}</div><div>${r.crafts} <span class="dim">${t('expected_val', { v: fmt(r.crafts * r.profit) })}</span></div>
     </div>` : `<div class="bad">${t('output_not_priced')}</div>`}
     <h2>${t('inputs_route')}</h2><div class="tree">${treeHtml(tr)}</div>`;
