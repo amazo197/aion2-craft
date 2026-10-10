@@ -1,4 +1,4 @@
-import { DEFAULTS, evaluate, tree, plan, itemName, maxTrade, isCapped, isThin, isOutlier } from './model/craft.js?v=11';
+import { DEFAULTS, evaluate, tree, plan, flips, itemName, maxTrade, isCapped, isThin, isOutlier } from './model/craft.js?v=12';
 import { initI18n, setLang, getLang, t, tn, onLangChange } from './i18n.js?v=2';
 
 const $ = id => document.getElementById(id);
@@ -131,14 +131,14 @@ function buildSectionOptions() {
 }
 
 function renderDynamic() {
-  renderMeta(); renderStatus(); buildSectionOptions(); renderOpps(); renderMarket(); renderPlan(); if (SELECTED) renderRecipe(SELECTED);
+  renderMeta(); renderStatus(); buildSectionOptions(); renderOpps(); renderMarket(); renderPlan(); renderFlip(); if (SELECTED) renderRecipe(SELECTED);
 }
 
 const COLS = [
   ['name', 'c_recipe', false], ['ml', 'c_ml', true], ['ppm', 'c_ppm', true], ['profitDay', 'c_profitDay', true],
   ['profit', 'c_profit', true], ['roi', 'c_roi', true], ['cost', 'c_cost', true], ['ev', 'c_ev', true],
   ['mins', 'c_mins', true], ['days', 'c_days', true], ['crafts', 'c_crafts', true],
-  ['plain', 'c_plain', true], ['plainL', 'c_plainL', true], ['green', 'c_green', true], ['greenL', 'c_greenL', true], ['maxTrade', 'c_maxtrade', true], ['bandLo', 'c_band', false], ['breakEvenGreen', 'c_beGreen', true], ['beSuccess', 'c_beSuccess', true],
+  ['plain', 'c_plain', true], ['plainL', 'c_plainL', true], ['green', 'c_green', true], ['greenL', 'c_greenL', true], ['maxTrade', 'c_maxtrade', true], ['bandLo', 'c_band', false], ['breakEvenGreen', 'c_beGreen', true], ['beSuccess', 'c_beSuccess', true], ['chg', 'm_chg', true],
 ];
 window.sortBy = k => { if (sortKey === k) sortDir = -sortDir; else { sortKey = k; sortDir = -1; } renderOpps(); };
 
@@ -161,7 +161,7 @@ window.renderOpps = () => {
       <td><span class="name">${icon(r.out)}${esc(r.name)}</span><span class="pill">${esc(r.prof)}</span>${r.combo ? `<span class="pill">→ ${nm(r.combo)}</span>` : ''}${r.outlier ? ` <span class="pill bad" title="${t('outlier_title')}">${t('outlier')}</span>` : r.unverified ? ` <span class="pill bad" title="${t('unverified_title')}">${t('unverified')}</span>` : ''}</td>
       <td class="num">${r.ml}</td><td class="num ${cls(r.ppm)}">${fmt(r.ppm)}</td><td class="num ${cls(r.profitDay)}">${fmt(r.profitDay)}</td><td class="num ${cls(r.profit)}">${fmt(r.profit)}</td><td class="num ${cls(r.roi)}">${pct(r.roi)}</td>
       <td class="num">${fmt(r.cost)}</td><td class="num">${fmt(r.ev)}</td><td class="num">${r.mins.toFixed(1)}</td><td class="num">${r.days == null ? '–' : r.days.toFixed(1)}</td><td class="num">${r.crafts}</td>
-      <td class="num">${fmt(r.plain)}</td><td class="num dim">${r.plainL}</td><td class="num">${fmt(r.green)}${r.capped ? ` <span class="pill bad" title="${t('cap_title')}">${t('capped')}</span>` : ''}</td><td class="num dim">${r.greenL}</td><td class="num">${fmt(r.maxTrade)}</td><td>${band}</td><td class="num">${fmt(r.breakEvenGreen)}</td><td class="num">${r.beSuccess == null ? '–' : pct(r.beSuccess)}</td></tr>`;
+      <td class="num">${fmt(r.plain)}</td><td class="num dim">${r.plainL}</td><td class="num">${fmt(r.green)}${r.capped ? ` <span class="pill bad" title="${t('cap_title')}">${t('capped')}</span>` : ''}</td><td class="num dim">${r.greenL}</td><td class="num">${fmt(r.maxTrade)}</td><td>${band}</td><td class="num">${fmt(r.breakEvenGreen)}</td><td class="num">${r.beSuccess == null ? '–' : pct(r.beSuccess)}</td><td class="num ${cls(r.chg)}">${r.chg == null ? '–' : r.chg.toFixed(0) + '%'}</td></tr>`;
   }).join('');
   $('oppTable').innerHTML = head + body;
 };
@@ -233,6 +233,18 @@ window.renderPlan = () => {
     : t('plan_none');
   $('planTable').innerHTML = `<tr><th>${t('c_recipe')}</th><th class="num">${t('plan_crafts')}</th><th class="num">${t('c_cost')}</th><th class="num">${t('c_mins')}</th><th class="num">${t('c_profit')}</th></tr>` +
     p.mix.map(m => `<tr class="click" onclick="pick('${m.rid}')"><td><span class="name">${icon(m.out)}${esc(m.name)}</span><span class="pill">${esc(m.prof)}</span></td><td class="num">${m.x.toFixed(1)}</td><td class="num">${fmt(m.x * m.cost)}</td><td class="num">${fmt(m.x * m.mins)}</td><td class="num good">${fmt(m.x * m.profit)}</td></tr>`).join('');
+};
+
+window.renderFlip = () => {
+  if (!RESULT) return;
+  const q = $('flipSearch').value.trim().toLowerCase();
+  let rows = flips(RESULT.ctx);
+  if ($('flipVerified').checked) rows = rows.filter(r => !r.unverified);
+  if ($('flipProfit').checked) rows = rows.filter(r => r.profit > 0);
+  if (q) rows = rows.filter(r => r.name.toLowerCase().includes(q));
+  $('flipCount').textContent = tn('n_items', rows.length);
+  $('flipTable').innerHTML = `<tr><th>${t('m_item')}</th><th class="num">${t('f_buy')}</th><th class="num">${t('f_sell')}</th><th class="num">${t('f_spread')}</th><th class="num">${t('c_roi')}</th><th class="num">${t('f_roiDay')}</th><th class="num">${t('c_days')}</th><th class="num">L</th><th class="num">${t('m_chg')}</th></tr>` +
+    rows.slice(0, 400).map(r => `<tr><td><span class="name">${icon(r.k)}${esc(r.name)}</span>${r.unverified ? ` <span class="pill bad" title="${t('unverified_title')}">${t('unverified')}</span>` : ''}</td><td class="num">${fmt(r.buy)}</td><td class="num">${fmt(r.sell)} <span class="dim">${t('src_' + r.src)}</span></td><td class="num ${cls(r.spread)}">${pct(r.spread)}</td><td class="num ${cls(r.profit)}">${pct(r.roi)}</td><td class="num ${cls(r.roiDay)}">${pct(r.roiDay)}</td><td class="num">${r.days == null ? '–' : r.days.toFixed(1)}</td><td class="num">${r.n}</td><td class="num ${cls(r.chg)}">${r.chg == null ? '–' : r.chg.toFixed(0) + '%'}</td></tr>`).join('');
 };
 
 window.renderMarket = () => {

@@ -304,6 +304,7 @@ export function evaluate(graph, prices, history, P, ref) {
       // Flag only when the value that drives EV comes from a thin or spiked book.
       unverified: isThin(driving, ctx) || isOutlier(driving, ctx),
       outlier: isOutlier(driving, ctx),
+      chg: pr.chg ?? null,
     };
     // Same item+mastery can be produced by several recipes; keep the most profitable.
     const key = name + '|' + r.ml;
@@ -391,6 +392,35 @@ export function plan(rows, budget, hours, limit = 12, horizonDays = 0) {
   res.mix = mix.filter(m => m.x > 1e-6).sort((a, b) => b.x * b.profit - a.x * a.profit).slice(0, limit);
   for (const m of res.mix) { res.profit += m.x * m.profit; res.cost += m.x * m.cost; res.mins += m.x * m.mins; }
   return res;
+}
+
+// Arbitrage: buy the cheapest ask and resell at the price buyers actually pay.
+// sell comes from 28d average sale (materials), else the cleared-band high, else
+// the highest known trade — the best evidence we have for each item class.
+export function flips(ctx) {
+  const { prices, history } = ctx;
+  const rows = [];
+  for (const [k, row] of Object.entries(prices)) {
+    if (row.p == null || row.p <= 0) continue;
+    if (/\(Bound\)/i.test(row.name || '')) continue;    // bound items are not tradable
+    const h = history && history[k];
+    const buy = row.p;
+    let sell = null, src = null;
+    if (row.sold > 0 && row.avg > 0) { sell = row.avg; src = 'avg'; }
+    else if (h && h.hi) { sell = h.hi; src = 'band'; }
+    else { const mt = maxTrade(k, ctx); if (mt) { sell = mt; src = 'trade'; } }
+    if (!sell || sell <= buy) continue;
+    const profit = sell * ctx.keep - buy;
+    const roi = profit / buy;
+    const days = daysToSell(k, ctx);
+    rows.push({
+      k, name: row.name, buy, sell, src, profit, roi, spread: sell / buy - 1,
+      days, roiDay: days ? roi / days : null, n: row.n || 0, sold: row.sold || 0,
+      chg: row.chg ?? null, unverified: isThin(k, ctx) || isOutlier(k, ctx),
+    });
+  }
+  rows.sort((a, b) => (b.roiDay ?? b.roi) - (a.roiDay ?? a.roi));
+  return rows;
 }
 
 // Expand a recipe into a cost tree for display.

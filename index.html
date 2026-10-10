@@ -62,6 +62,7 @@
     <button class="mbtn" id="tab-recipe" onclick="setTab('recipe')" data-i18n="tab_recipe">Recipe</button>
     <button class="mbtn" id="tab-market" onclick="setTab('market')" data-i18n="tab_market">Market</button>
     <button class="mbtn" id="tab-plan" onclick="setTab('plan')" data-i18n="tab_plan">Plan</button>
+    <button class="mbtn" id="tab-flip" onclick="setTab('flip')" data-i18n="tab_flip">Flip</button>
   </div>
 
   <section class="tab on" id="opps">
@@ -99,6 +100,17 @@
     <div class="scroll panel" style="padding:0;margin-top:8px"><table id="planTable"></table></div>
   </section>
 
+  <section class="tab" id="flip">
+    <div class="row">
+      <input class="search" id="flipSearch" data-i18n-ph="ph_filter_item" placeholder="filter item…" oninput="renderFlip()">
+      <label class="small"><input type="checkbox" id="flipVerified" checked onchange="renderFlip()"> <span data-i18n="only_verified">verified prices only</span></label>
+      <label class="small"><input type="checkbox" id="flipProfit" checked onchange="renderFlip()"> <span data-i18n="only_positive">profitable only</span></label>
+      <span class="small" id="flipCount"></span>
+    </div>
+    <div class="small" data-i18n="flip_hint" style="margin-top:6px"></div>
+    <div class="scroll panel" style="padding:0;margin-top:8px"><table id="flipTable"></table></div>
+  </section>
+
   <details class="method">
     <summary data-i18n="methodology">Methodology</summary>
     <p data-i18n="method_p1">Recipes and icons come from the gamers4.life crafting graph. Prices are the cheapest current listing on aion2.exchange for the chosen server, refreshed hourly by a GitHub Action. 28-day sales statistics exist only where the game publishes them (materials, consumables, skins), so for gear and accessories the "cleared band" is inferred from listings that disappeared between 10-minute snapshots: the low end is the cheapest ask that vanished, the high end the next ask left standing. Disappearances include cancels and relists.</p>
@@ -115,6 +127,6 @@ risk            = σ, chance of loss and CVaR10 over the {fail, plain, Splendent
     <p data-i18n="method_p3">Success rate is yours to set per mastery tier; Korean testing found ~95% on beginner recipes and ~65% on Dragon-King-tier recipes at matching mastery. A failed craft loses all materials. Bound NPC consumables (abrasive, catalyst, hardener, bottles) are costed at the NPC price input. Inputs bought from the market are priced at the higher of the cheapest ask and the cheapest ask that vanished in the window, so a lone low listing does not set the cost.</p>
   </details>
 </div>
-<script type="module" src="app.js?v=13"></script>
+<script type="module" src="app.js?v=14"></script>
 </body>
 </html>
