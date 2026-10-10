@@ -1,8 +1,8 @@
-import { DEFAULTS, evaluate, tree, plan, flips, itemName, maxTrade, isCapped, isThin, isOutlier } from './model/craft.js?v=12';
+import { DEFAULTS, evaluate, tree, plan, flips, trendChange, itemName, maxTrade, isCapped, isThin, isOutlier } from './model/craft.js?v=13';
 import { initI18n, setLang, getLang, t, tn, onLangChange } from './i18n.js?v=2';
 
 const $ = id => document.getElementById(id);
-let GRAPH = null, SERVERS = null, META = null, PRICES = {}, HISTORY = {}, REF = {}, P = { ...DEFAULTS }, RESULT = null, SELECTED = null;
+let GRAPH = null, SERVERS = null, META = null, PRICES = {}, HISTORY = {}, REF = {}, TREND = {}, P = { ...DEFAULTS }, RESULT = null, SELECTED = null;
 let sortKey = 'ppm', sortDir = -1;
 let LAST_STATUS = null;
 
@@ -13,6 +13,16 @@ const cls = n => n > 0 ? 'good' : n < 0 ? 'bad' : '';
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const icon = k => { const it = GRAPH.items[k]; return it && it.icon ? `<img class="ic" src="${esc(it.icon)}" referrerpolicy="no-referrer" loading="lazy" alt="">` : '<span class="ic"></span>'; };
 const nm = k => esc(itemName(GRAPH, PRICES, k));
+const spark = k => {
+  const s = TREND && TREND.p && TREND.p[k];
+  if (!s) return '';
+  const vals = s.filter(v => v != null);
+  if (vals.length < 2) return '';
+  const mn = Math.min(...vals), mx = Math.max(...vals), w = 90, h = 18, rng = mx - mn || 1;
+  const pts = s.map((v, i) => v == null ? null : [(i / (s.length - 1)) * w, h - 1 - ((v - mn) / rng) * (h - 2)])
+    .filter(Boolean).map(p => p[0].toFixed(1) + ',' + p[1].toFixed(1)).join(' ');
+  return `<svg class="spark" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}"><polyline points="${pts}" fill="none" stroke="var(--accent)" stroke-width="1.5"/></svg>`;
+};
 const HOW = { buy: 'how_buy', craft: 'how_craft', 'craft-combo': 'how_combo', npc: 'how_npc' };
 
 function bakedLocal(iso) {
@@ -107,9 +117,10 @@ async function loadServerData(server) {
   try {
     const d = await (await fetch(`data/prices_${server}.json`, { cache: 'no-cache' })).json();
     PRICES = d.prices || {}; HISTORY = d.history || {};
+    TREND = await fetch(`data/trend_${server}.json`, { cache: 'no-cache' }).then(r => r.ok ? r.json() : {}).catch(() => ({}));
     LAST_STATUS = ['status_loaded', { items: Object.keys(PRICES).length, hist: Object.keys(HISTORY).length, time: bakedLocal(d.baked_at) }];
   } catch (e) {
-    PRICES = {}; HISTORY = {};
+    PRICES = {}; HISTORY = {}; TREND = {};
     LAST_STATUS = ['status_noprices', { s: server }];
   }
   renderStatus();
@@ -181,6 +192,7 @@ function mktRow(k) {
     <div>${t('d28_sold')}</div><div>${v.sold ? t('sold_line', { sold: v.sold.toLocaleString(locale()), avg: fmt(v.avg), min: fmt(v.smin), max: fmt(v.smax) }) : `<span class="dim">${t('not_published')}</span>`}</div>
     <div>${t('cleared_band')}</div><div>${h ? (h.lo ? `${fmt(h.lo)}–${fmt(h.hi)}` : `<span class="dim">${t('no_priced_event')}</span>`) + ` <span class="dim">· ${t('hist_line', { gone: h.gone, hours: h.hours, low: fmt(h.low24), high: fmt(h.high24) })}</span>` : `<span class="dim">${t('no_history')}</span>`}</div>
     <div>${t('highest_trade')}</div><div>${fmt(maxTrade(k, RESULT.ctx))}${isCapped(k, RESULT.ctx) ? ` <span class="pill bad">${t('ask_capped')}</span>` : ''}</div>
+    <div>${t('trend7')}</div><div>${(() => { const c7 = trendChange(TREND, k, 7); return c7 == null ? '<span class="dim">–</span>' : `<span class="${cls(c7)}">${pct(c7)}</span>`; })()} ${spark(k)}</div>
     ${isOutlier(k, RESULT.ctx) ? `<div class="bad">${t('outlier_title')}</div><div></div>` : isThin(k, RESULT.ctx) ? `<div class="bad">${t('unverified_title')}</div><div></div>` : ''}
   </div>`;
 }
@@ -243,8 +255,8 @@ window.renderFlip = () => {
   if ($('flipProfit').checked) rows = rows.filter(r => r.profit > 0);
   if (q) rows = rows.filter(r => r.name.toLowerCase().includes(q));
   $('flipCount').textContent = tn('n_items', rows.length);
-  $('flipTable').innerHTML = `<tr><th>${t('m_item')}</th><th class="num">${t('f_buy')}</th><th class="num">${t('f_sell')}</th><th class="num">${t('f_spread')}</th><th class="num">${t('c_roi')}</th><th class="num">${t('f_roiDay')}</th><th class="num">${t('c_days')}</th><th class="num">L</th><th class="num">${t('m_chg')}</th></tr>` +
-    rows.slice(0, 400).map(r => `<tr><td><span class="name">${icon(r.k)}${esc(r.name)}</span>${r.unverified ? ` <span class="pill bad" title="${t('unverified_title')}">${t('unverified')}</span>` : ''}</td><td class="num">${fmt(r.buy)}</td><td class="num">${fmt(r.sell)} <span class="dim">${t('src_' + r.src)}</span></td><td class="num ${cls(r.spread)}">${pct(r.spread)}</td><td class="num ${cls(r.profit)}">${pct(r.roi)}</td><td class="num ${cls(r.roiDay)}">${pct(r.roiDay)}</td><td class="num">${r.days == null ? '–' : r.days.toFixed(1)}</td><td class="num">${r.n}</td><td class="num ${cls(r.chg)}">${r.chg == null ? '–' : r.chg.toFixed(0) + '%'}</td></tr>`).join('');
+  $('flipTable').innerHTML = `<tr><th>${t('m_item')}</th><th class="num">${t('f_buy')}</th><th class="num">${t('f_sell')}</th><th class="num">${t('f_spread')}</th><th class="num">${t('c_roi')}</th><th class="num">${t('f_roiDay')}</th><th class="num">${t('c_days')}</th><th class="num">L</th><th class="num">${t('m_chg')}</th><th class="num">${t('trend7')}</th></tr>` +
+    rows.slice(0, 400).map(r => { const c7 = trendChange(TREND, r.k, 7); return `<tr><td><span class="name">${icon(r.k)}${esc(r.name)}</span>${r.unverified ? ` <span class="pill bad" title="${t('unverified_title')}">${t('unverified')}</span>` : ''}</td><td class="num">${fmt(r.buy)}</td><td class="num">${fmt(r.sell)} <span class="dim">${t('src_' + r.src)}</span></td><td class="num ${cls(r.spread)}">${pct(r.spread)}</td><td class="num ${cls(r.profit)}">${pct(r.roi)}</td><td class="num ${cls(r.roiDay)}">${pct(r.roiDay)}</td><td class="num">${r.days == null ? '–' : r.days.toFixed(1)}</td><td class="num">${r.n}</td><td class="num ${cls(r.chg)}">${r.chg == null ? '–' : r.chg.toFixed(0) + '%'}</td><td class="num ${cls(c7)}">${c7 == null ? '–' : pct(c7)}</td></tr>`; }).join('');
 };
 
 window.renderMarket = () => {
@@ -255,8 +267,8 @@ window.renderMarket = () => {
   $('mktCount').textContent = tn('n_items', rows.length);
   const craftable = new Set([...RESULT.ctx.byOut.keys(), ...RESULT.ctx.byCombo.keys()]);
   const ridFor = k => (RESULT.ctx.byOut.get(k) || RESULT.ctx.byCombo.get(k) || [])[0];
-  $('mktTable').innerHTML = `<tr><th>${t('m_item')}</th><th>${t('m_category')}</th><th class="num">${t('ask')}</th><th class="num">L</th><th class="num">${t('m_chg')}</th><th class="num">${t('m_sold28')}</th><th class="num">${t('m_avg')}</th><th>${t('cleared_band')}</th><th>${t('m_craft')}</th></tr>` +
-    rows.slice(0, 600).map(([k, v]) => { const h = HISTORY[k]; return `<tr><td><span class="name">${icon(k)}${esc(v.name)}</span></td><td class="dim">${esc(v.cat)}</td><td class="num">${fmt(v.p)}</td><td class="num dim">${v.n}</td><td class="num ${cls(v.chg)}">${v.chg == null ? '–' : v.chg.toFixed(0) + '%'}</td><td class="num">${v.sold ? v.sold.toLocaleString(locale()) : '<span class="dim">–</span>'}</td><td class="num">${fmt(v.avg)}</td><td>${h && h.lo ? `${fmt(h.lo)}–${fmt(h.hi)} <span class="dim">(${t('gone_h', { gone: h.gone, hours: h.hours })})</span>` : h ? `<span class="dim">${t('gone_h', { gone: h.gone, hours: h.hours })}</span>` : ''}</td><td>${craftable.has(k) ? `<button class="mbtn" onclick="pick('${ridFor(k)}')">${t('recipe_btn')}</button>` : ''}</td></tr>`; }).join('');
+  $('mktTable').innerHTML = `<tr><th>${t('m_item')}</th><th>${t('m_category')}</th><th class="num">${t('ask')}</th><th class="num">L</th><th class="num">${t('m_chg')}</th><th class="num">${t('trend7')}</th><th class="num">${t('m_sold28')}</th><th class="num">${t('m_avg')}</th><th>${t('cleared_band')}</th><th>${t('m_craft')}</th></tr>` +
+    rows.slice(0, 600).map(([k, v]) => { const h = HISTORY[k], c7 = trendChange(TREND, k, 7); return `<tr><td><span class="name">${icon(k)}${esc(v.name)}</span></td><td class="dim">${esc(v.cat)}</td><td class="num">${fmt(v.p)}</td><td class="num dim">${v.n}</td><td class="num ${cls(v.chg)}">${v.chg == null ? '–' : v.chg.toFixed(0) + '%'}</td><td class="num ${cls(c7)}">${c7 == null ? '–' : pct(c7)}</td><td class="num">${v.sold ? v.sold.toLocaleString(locale()) : '<span class="dim">–</span>'}</td><td class="num">${fmt(v.avg)}</td><td>${h && h.lo ? `${fmt(h.lo)}–${fmt(h.hi)} <span class="dim">(${t('gone_h', { gone: h.gone, hours: h.hours })})</span>` : h ? `<span class="dim">${t('gone_h', { gone: h.gone, hours: h.hours })}</span>` : ''}</td><td>${craftable.has(k) ? `<button class="mbtn" onclick="pick('${ridFor(k)}')">${t('recipe_btn')}</button>` : ''}</td></tr>`; }).join('');
 };
 
 async function loadJson(url, cache) {

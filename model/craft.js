@@ -51,6 +51,22 @@ export function daysToSell(k, ctx) {
   return ((row && row.n || 0) + 1) / perDay;
 }
 
+// Percent change of the cheapest ask over the last `days` daily snapshots.
+// trend = {d:[date...], p:{key:[price|null...]}} from data/trend_<server>.json.
+export function trendChange(trend, k, days) {
+  if (!trend || !trend.d || !trend.p) return null;
+  const s = trend.p[k], d = trend.d, n = d.length;
+  if (!s || n < 2) return null;
+  const last = s[n - 1];
+  if (last == null) return null;
+  const cut = new Date(d[n - 1]);
+  cut.setUTCDate(cut.getUTCDate() - days);
+  for (let i = 0; i < n; i++) {
+    if (new Date(d[i]) >= cut && s[i] != null) return last / s[i] - 1;
+  }
+  return null;
+}
+
 // Distribution statistics of the per-craft profit over its discrete outcomes.
 // outcomes: array of [probability, value].
 export function risk(outcomes) {

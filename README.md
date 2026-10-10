@@ -9,6 +9,7 @@ Fork of https://github.com/shizukaziye/aion2-craft.
 - Cleared bands: for gear and accessories the game publishes no sales, so the bake infers what cleared from listings that vanished between 10-minute snapshots.
 - Thin asks: a price that stands on a lone listing with no sales and no cleared history is flagged "thin" (the RMT gap) and hidden by default under "verified prices only".
 - Cross-server reference: `data/ref.json` stores the lowest ask per item across servers. A gear ask with no trade evidence that sits far above it is capped and flagged a "spike".
+- Daily trends: `data/trend_<server>.json` keeps the cheapest ask per item once a day (30 days, append-only so git history stays small). The page shows 7-day change and sparklines.
 - Beyond kina/min, each recipe gets expected days to sell (Little's law), kina/day and ROI/day, the chance of loss and CVaR10 over the fail/plain/Splendent outcomes, and the break-even success rate.
 - The Plan tab solves `max Σ profit·x` under a budget and an hours budget (LP dual). With a horizon in days it also caps each recipe by how fast the market clears it (turnover from days-to-sell), so the plan does not assume selling more than the market absorbs.
 

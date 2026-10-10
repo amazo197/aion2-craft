@@ -150,6 +150,38 @@ def bake_prices(server, limit=200):
     return out
 
 
+def bake_trend(server, prices, days=30):
+    """Append today's cheapest ask per item to a rolling daily history.
+
+    One point per UTC day (append-only, so the file changes at most once a day
+    and git history stays small). Lets the page show multi-day trends.
+    """
+    path = os.path.join(DATA, f"trend_{server}.json")
+    t = {"d": [], "p": {}}
+    if os.path.exists(path):
+        try:
+            t = json.load(open(path, encoding="utf-8"))
+        except Exception:
+            t = {"d": [], "p": {}}
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    if t["d"] and t["d"][-1] == today:
+        return
+    t["d"].append(today)
+    for k, v in prices.items():
+        arr = t["p"].setdefault(k, [None] * (len(t["d"]) - 1))
+        arr.append(v.get("p"))
+    for arr in t["p"].values():                    # items missing from this bake
+        if len(arr) < len(t["d"]):
+            arr.append(None)
+    if len(t["d"]) > days:
+        t["d"] = t["d"][-days:]
+        for k in list(t["p"]):
+            t["p"][k] = t["p"][k][-days:]
+    t["p"] = {k: a for k, a in t["p"].items() if any(x is not None for x in a)}
+    json.dump(t, open(path, "w"), separators=(",", ":"))
+    print(f"trend {server}: {len(t['d'])} days")
+
+
 def bake_ref(servers):
     """Cheapest ask per item across servers, as a cross-server reference.
 
@@ -270,6 +302,7 @@ def main():
         for k, h in prev_hist.items():
             if k not in hist and h.get("tmax_ever"):
                 hist[k] = {"gone": 0, "events": 0, "lo": None, "hi": None, "tmax": None, "hours": 0, "tmax_ever": h["tmax_ever"]}
+        bake_trend(s, prices)
         json.dump({"server": s, "prices": prices, "history": hist, "baked_at": meta["baked_at"]},
                   open(os.path.join(DATA, f"prices_{s}.json"), "w"), separators=(",", ":"))
         meta["servers"][str(s)] = {"items": len(prices), "history": len(hist), "has_sales": any(v["sold"] for v in prices.values())}
