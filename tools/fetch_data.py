@@ -111,16 +111,30 @@ def bake_servers():
 
 
 def bake_prices(server):
-    items, off = [], 0
+    """Fetch every market page for a server.
+
+    Returns None when the fetch is incomplete (a page failed, or fewer items
+    came back than the API reported), so the caller can keep the previous
+    bake instead of overwriting good data with a partial/empty result.
+    """
+    items, off, expected = [], 0, None
     while True:
         d = get(f"{EX}/items?sort=name&order=asc&window=24h&limit=200&offset={off}&server={server}")
         if not d:
             break
-        items += d["items"]
+        if expected is None:
+            expected = d.get("total") or 0
+        items += d.get("items") or []
         off += 200
-        if off >= d["total"]:
+        if off >= (d.get("total") or 0):
             break
         time.sleep(PAUSE)
+    if not items:
+        print(f"server {server}: no items fetched")
+        return None
+    if expected and len(items) < expected:
+        print(f"server {server}: incomplete fetch {len(items)}/{expected}")
+        return None
     out = {}
     for it in items:
         out[str(it["item_key"])] = {
@@ -191,8 +205,13 @@ def main():
             pass
     for s in servers:
         prices = bake_prices(s)
-        hist = {}
         prev_path = os.path.join(DATA, f"prices_{s}.json")
+        if not prices:
+            if os.path.exists(prev_path):
+                print(f"server {s}: keeping previous prices")
+                continue
+            prices = {}
+        hist = {}
         prev_hist = {}
         if os.path.exists(prev_path):
             try:

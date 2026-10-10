@@ -1,0 +1,10 @@
+# Normalise line endings to LF for all text files, leave binary assets alone.
+# Baked JSON is written by fetch_data.py; treat it as text so diffs stay readable.
+* text=auto eol=lf
+
+*.png binary
+*.webp binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary

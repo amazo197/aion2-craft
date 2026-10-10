@@ -9,8 +9,9 @@ let LAST_STATUS = null;
 const fmt = n => n == null || isNaN(n) ? '–' : Math.abs(n) >= 1e6 ? (n / 1e6).toFixed(2) + 'M' : Math.abs(n) >= 1e4 ? (n / 1e3).toFixed(1) + 'k' : Math.round(n).toLocaleString(getLang());
 const pct = n => n == null || isNaN(n) ? '–' : (n * 100).toFixed(0) + '%';
 const cls = n => n > 0 ? 'good' : n < 0 ? 'bad' : '';
-const icon = k => { const it = GRAPH.items[k]; return it && it.icon ? `<img class="ic" src="${it.icon}" referrerpolicy="no-referrer" loading="lazy" alt="">` : '<span class="ic"></span>'; };
-const nm = k => itemName(GRAPH, PRICES, k);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const icon = k => { const it = GRAPH.items[k]; return it && it.icon ? `<img class="ic" src="${esc(it.icon)}" referrerpolicy="no-referrer" loading="lazy" alt="">` : '<span class="ic"></span>'; };
+const nm = k => esc(itemName(GRAPH, PRICES, k));
 const HOW = { buy: 'how_buy', craft: 'how_craft', 'craft-combo': 'how_combo', npc: 'how_npc' };
 
 function bakedLocal(iso) {
@@ -90,7 +91,7 @@ function buildServerOptions() {
   const baked = new Set(Object.keys((META && META.servers) || {}));
   const cur = $('server').value;
   const opts = ((SERVERS && SERVERS.servers) || []).filter(s => baked.has(String(s.server_id)))
-    .map(s => `<option value="${s.server_id}">${s.name} (${s.region} ${s.faction})${META.servers[String(s.server_id)].has_sales ? t('sales_stats') : ''}</option>`);
+    .map(s => `<option value="${s.server_id}">${esc(s.name)} (${esc(s.region)} ${esc(s.faction)})${META.servers[String(s.server_id)].has_sales ? t('sales_stats') : ''}</option>`);
   $('server').innerHTML = opts.join('') || `<option value="${DEFAULTS.server}">${DEFAULTS.server}</option>`;
   if ([...$('server').options].some(o => o.value === cur)) $('server').value = cur;
 }
@@ -120,7 +121,7 @@ function buildSectionOptions() {
   const cur = $('mktSection').value;
   const secs = new Set();
   for (const v of Object.values(PRICES)) secs.add(v.sec);
-  $('mktSection').innerHTML = `<option value="">${t('all_sections')}</option>` + [...secs].sort().map(s => `<option value="${s}">${s}</option>`).join('');
+  $('mktSection').innerHTML = `<option value="">${t('all_sections')}</option>` + [...secs].sort().map(s => `<option value="${esc(s)}">${esc(s)}</option>`).join('');
   if ([...$('mktSection').options].some(o => o.value === cur)) $('mktSection').value = cur;
 }
 
@@ -149,7 +150,7 @@ window.renderOpps = () => {
   const body = rows.slice(0, 400).map(r => {
     const h = r.hist, band = h && h.lo ? `${fmt(h.lo)}–${fmt(h.hi)} <span class="dim">(${t('gone_h', { gone: h.gone, hours: h.hours })})</span>` : h ? `<span class="dim">${t('gone_h', { gone: h.gone, hours: h.hours })}</span>` : '';
     return `<tr class="click ${SELECTED === r.rid ? 'sel' : ''}" onclick="pick('${r.rid}')">
-      <td><span class="name">${icon(r.out)}${r.name}</span><span class="pill">${r.prof}</span>${r.combo ? `<span class="pill">→ ${nm(r.combo)}</span>` : ''}</td>
+      <td><span class="name">${icon(r.out)}${esc(r.name)}</span><span class="pill">${esc(r.prof)}</span>${r.combo ? `<span class="pill">→ ${nm(r.combo)}</span>` : ''}</td>
       <td class="num">${r.ml}</td><td class="num ${cls(r.ppm)}">${fmt(r.ppm)}</td><td class="num ${cls(r.profit)}">${fmt(r.profit)}</td><td class="num ${cls(r.roi)}">${pct(r.roi)}</td>
       <td class="num">${fmt(r.cost)}</td><td class="num">${fmt(r.ev)}</td><td class="num">${r.mins.toFixed(1)}</td><td class="num">${r.crafts}</td>
       <td class="num">${fmt(r.plain)}</td><td class="num dim">${r.plainL}</td><td class="num">${fmt(r.green)}${r.capped ? ` <span class="pill bad" title="${t('cap_title')}">${t('capped')}</span>` : ''}</td><td class="num dim">${r.greenL}</td><td class="num">${fmt(r.maxTrade)}</td><td>${band}</td><td class="num">${fmt(r.breakEvenGreen)}</td></tr>`;
@@ -202,7 +203,7 @@ window.recipeSuggest = () => {
   const q = $('recipeSearch').value.trim().toLowerCase();
   if (!q || !RESULT) { $('recipeSuggestions').innerHTML = ''; return; }
   const hits = RESULT.rows.filter(r => r.name.toLowerCase().includes(q)).slice(0, 12);
-  $('recipeSuggestions').innerHTML = hits.map(r => `<button class="mbtn" onclick="pick('${r.rid}')">${r.name} <span class="dim">ml${r.ml}</span></button>`).join(' ');
+  $('recipeSuggestions').innerHTML = hits.map(r => `<button class="mbtn" onclick="pick('${r.rid}')">${esc(r.name)} <span class="dim">ml${r.ml}</span></button>`).join(' ');
 };
 
 window.renderMarket = () => {
@@ -212,8 +213,9 @@ window.renderMarket = () => {
   rows.sort((a, b) => ((b[1].sold || 0) * (b[1].avg || b[1].p || 0)) - ((a[1].sold || 0) * (a[1].avg || a[1].p || 0)) || (b[1].p || 0) - (a[1].p || 0));
   $('mktCount').textContent = tn('n_items', rows.length);
   const craftable = new Set([...RESULT.ctx.byOut.keys(), ...RESULT.ctx.byCombo.keys()]);
+  const ridFor = k => (RESULT.ctx.byOut.get(k) || RESULT.ctx.byCombo.get(k) || [])[0];
   $('mktTable').innerHTML = `<tr><th>${t('m_item')}</th><th>${t('m_category')}</th><th class="num">${t('ask')}</th><th class="num">L</th><th class="num">${t('m_chg')}</th><th class="num">${t('m_sold28')}</th><th class="num">${t('m_avg')}</th><th>${t('cleared_band')}</th><th>${t('m_craft')}</th></tr>` +
-    rows.slice(0, 600).map(([k, v]) => { const h = HISTORY[k]; return `<tr><td><span class="name">${icon(k)}${v.name}</span></td><td class="dim">${v.cat}</td><td class="num">${fmt(v.p)}</td><td class="num dim">${v.n}</td><td class="num ${cls(v.chg)}">${v.chg == null ? '–' : v.chg.toFixed(0) + '%'}</td><td class="num">${v.sold ? v.sold.toLocaleString(getLang()) : '<span class="dim">–</span>'}</td><td class="num">${fmt(v.avg)}</td><td>${h && h.lo ? `${fmt(h.lo)}–${fmt(h.hi)} <span class="dim">(${t('gone_h', { gone: h.gone, hours: h.hours })})</span>` : h ? `<span class="dim">${t('gone_h', { gone: h.gone, hours: h.hours })}</span>` : ''}</td><td>${craftable.has(k) ? `<button class="mbtn" onclick="pick('${RESULT.ctx.byOut.get(k) || RESULT.ctx.byCombo.get(k)}')">${t('recipe_btn')}</button>` : ''}</td></tr>`; }).join('');
+    rows.slice(0, 600).map(([k, v]) => { const h = HISTORY[k]; return `<tr><td><span class="name">${icon(k)}${esc(v.name)}</span></td><td class="dim">${esc(v.cat)}</td><td class="num">${fmt(v.p)}</td><td class="num dim">${v.n}</td><td class="num ${cls(v.chg)}">${v.chg == null ? '–' : v.chg.toFixed(0) + '%'}</td><td class="num">${v.sold ? v.sold.toLocaleString(getLang()) : '<span class="dim">–</span>'}</td><td class="num">${fmt(v.avg)}</td><td>${h && h.lo ? `${fmt(h.lo)}–${fmt(h.hi)} <span class="dim">(${t('gone_h', { gone: h.gone, hours: h.hours })})</span>` : h ? `<span class="dim">${t('gone_h', { gone: h.gone, hours: h.hours })}</span>` : ''}</td><td>${craftable.has(k) ? `<button class="mbtn" onclick="pick('${ridFor(k)}')">${t('recipe_btn')}</button>` : ''}</td></tr>`; }).join('');
 };
 
 async function init() {
