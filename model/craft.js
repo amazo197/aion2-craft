@@ -213,11 +213,13 @@ function comboOffer(rid, r, run, ctx) {
 // prices arbitrarily long craft chains correctly. Costs only fall, so it stops.
 export function computeAcquire(ctx) {
   const acq = new Map();
+  const morph = ctx.morph || {};
   const keys = new Set([...ctx.byOut.keys(), ...ctx.byCombo.keys()]);
   for (const r of Object.values(ctx.graph.recipes)) {
     if (!r.in) continue;
     for (const inp of r.in) { keys.add(String(inp[0])); if (inp[2]) keys.add(String(inp[2])); }
   }
+  for (const [k, mp] of Object.entries(morph)) { keys.add(k); if (mp && mp.odyle) keys.add(mp.odyle); }
   for (const k of keys) { const b = buyCandidate(k, ctx); if (b) acq.set(k, b); }
   const usable = [];
   for (const [rid, r] of Object.entries(ctx.graph.recipes)) {
@@ -228,6 +230,13 @@ export function computeAcquire(ctx) {
   }
   for (let iter = 0; iter < 64; iter++) {
     let changed = false;
+    // Substance Morph: an item can also be morphed from Odyle (grade for grade).
+    for (const [k, mp] of Object.entries(morph)) {
+      const o = acq.has(mp.odyle) ? acq.get(mp.odyle) : buyCandidate(mp.odyle, ctx);
+      if (!o) continue;
+      const cost = o.cost * (mp.qty || 1);
+      if (!(acq.has(k) && acq.get(k).cost <= cost)) { acq.set(k, { cost, mins: 0, how: 'morph', via: null }); changed = true; }
+    }
     for (const [rid, r] of usable) {
       const run = runRecipe(r, ctx, acq);
       if (!run) continue;
@@ -255,7 +264,7 @@ export function recipeCost(r, ctx) {
   return runRecipe(r, ctx, ctx.acq || new Map());
 }
 
-export function makeCtx(graph, prices, history, P, ref) {
+export function makeCtx(graph, prices, history, P, ref, morph) {
   // Candidate recipes per output, honouring the same mastery/profession limits
   // as evaluate(), so a cost route never assumes a craft the player cannot do.
   const byOut = new Map(), byCombo = new Map();
@@ -269,14 +278,14 @@ export function makeCtx(graph, prices, history, P, ref) {
   }
   let rsKey = null;
   for (const [k, v] of Object.entries(prices)) if (v.name === 'Refining Stone') rsKey = k;
-  const ctx = { graph, prices, history, P, byOut, byCombo, rsKey, keep: 1 - P.tax - P.listFee, ref: ref || null };
+  const ctx = { graph, prices, history, P, byOut, byCombo, rsKey, keep: 1 - P.tax - P.listFee, ref: ref || null, morph: morph || null };
   ctx.acq = computeAcquire(ctx);
   return ctx;
 }
 
 // Evaluate every recipe. Returns rows sorted by profit per minute.
-export function evaluate(graph, prices, history, P, ref) {
-  const ctx = makeCtx(graph, prices, history, P, ref);
+export function evaluate(graph, prices, history, P, ref, morph) {
+  const ctx = makeCtx(graph, prices, history, P, ref, morph);
   const byKey = new Map();
   for (const [rid, r] of Object.entries(graph.recipes)) {
     if (!r.in || !r.in.length) continue;
@@ -414,7 +423,7 @@ export function plan(rows, budget, hours, limit = 12, horizonDays = 0) {
 // sell comes from 28d average sale (materials), else the cleared-band high, else
 // the highest known trade — the best evidence we have for each item class.
 export function flips(ctx) {
-  const { prices, history } = ctx;
+  const { prices, history } = ctx;   // ctx carries keep, ref, morph via makeCtx
   const rows = [];
   for (const [k, row] of Object.entries(prices)) {
     if (row.p == null || row.p <= 0) continue;

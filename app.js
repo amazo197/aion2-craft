@@ -1,8 +1,8 @@
-import { DEFAULTS, evaluate, tree, plan, flips, trendChange, itemName, maxTrade, isCapped, isThin, isOutlier } from './model/craft.js?v=13';
+import { DEFAULTS, evaluate, tree, plan, flips, trendChange, itemName, maxTrade, isCapped, isThin, isOutlier } from './model/craft.js?v=14';
 import { initI18n, setLang, getLang, t, tn, onLangChange } from './i18n.js?v=2';
 
 const $ = id => document.getElementById(id);
-let GRAPH = null, SERVERS = null, META = null, PRICES = {}, HISTORY = {}, REF = {}, TREND = {}, P = { ...DEFAULTS }, RESULT = null, SELECTED = null;
+let GRAPH = null, SERVERS = null, META = null, PRICES = {}, HISTORY = {}, REF = {}, TREND = {}, MORPH = {}, P = { ...DEFAULTS }, RESULT = null, SELECTED = null;
 let sortKey = 'ppm', sortDir = -1;
 let LAST_STATUS = null;
 
@@ -23,7 +23,7 @@ const spark = k => {
     .filter(Boolean).map(p => p[0].toFixed(1) + ',' + p[1].toFixed(1)).join(' ');
   return `<svg class="spark" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}"><polyline points="${pts}" fill="none" stroke="var(--accent)" stroke-width="1.5"/></svg>`;
 };
-const HOW = { buy: 'how_buy', craft: 'how_craft', 'craft-combo': 'how_combo', npc: 'how_npc' };
+const HOW = { buy: 'how_buy', craft: 'how_craft', 'craft-combo': 'how_combo', npc: 'how_npc', morph: 'how_morph' };
 
 function bakedLocal(iso) {
   if (!iso) return '';
@@ -129,7 +129,7 @@ async function loadServerData(server) {
 window.recalc = async () => {
   const prev = P.server; readParams(); saveParams();
   if (P.server !== prev || !Object.keys(PRICES).length) await loadServerData(P.server);
-  RESULT = evaluate(GRAPH, PRICES, HISTORY, P, REF);
+  RESULT = evaluate(GRAPH, PRICES, HISTORY, P, REF, MORPH);
   renderDynamic();
 };
 
@@ -286,6 +286,7 @@ async function init() {
       loadJson('data/meta.json', 'no-cache').catch(() => ({ servers: {} })),
     ]);
     REF = await loadJson('data/ref.json', 'no-cache').catch(() => ({}));
+    MORPH = await loadJson('data/morph.json', 'no-cache').catch(() => ({}));
     if (!GRAPH || !GRAPH.items || !GRAPH.recipes) throw new Error('graph.json: unexpected shape');
   } catch (e) {
     const el = $('meta');
