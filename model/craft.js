@@ -92,16 +92,17 @@ export function itemName(graph, prices, k) {
 }
 
 // Faction-locked item families: Asvata is Asmodian, Yggdrasil is Elyos.
-export function itemFaction(graph, k) {
+export function itemFaction(graph, k, map) {
+  if (map && map[k]) return map[k];
   const n = (graph.items[k] && graph.items[k].n) || '';
   if (/Yggdrasil/.test(n)) return 'elyos';
   if (/Asvata/.test(n)) return 'asmodian';
   return null;
 }
 
-export function blockedFaction(graph, k, faction) {
+export function blockedFaction(graph, k, faction, map) {
   if (!faction) return false;
-  const f = itemFaction(graph, k);
+  const f = itemFaction(graph, k, map);
   return !!f && f !== faction;
 }
 
@@ -291,8 +292,8 @@ export function recipeCost(r, ctx) {
   return runRecipe(r, ctx, ctx.acq || new Map());
 }
 
-export function makeCtx(graph, prices, history, P, ref, morph, faction) {
-  const blocked = faction ? (k => blockedFaction(graph, k, faction)) : null;
+export function makeCtx(graph, prices, history, P, ref, morph, faction, factionMap) {
+  const blocked = faction ? (k => blockedFaction(graph, k, faction, factionMap)) : null;
   // Candidate recipes per output, honouring the same mastery/profession limits
   // as evaluate(), so a cost route never assumes a craft the player cannot do.
   const byOut = new Map(), byCombo = new Map();
@@ -307,14 +308,14 @@ export function makeCtx(graph, prices, history, P, ref, morph, faction) {
   }
   let rsKey = null;
   for (const [k, v] of Object.entries(prices)) if (v.name === 'Refining Stone') rsKey = k;
-  const ctx = { graph, prices, history, P, byOut, byCombo, rsKey, keep: 1 - P.tax - P.listFee, ref: ref || null, morph: morph || null, faction: faction || null, blocked };
+  const ctx = { graph, prices, history, P, byOut, byCombo, rsKey, keep: 1 - P.tax - P.listFee, ref: ref || null, morph: morph || null, faction: faction || null, factionMap: factionMap || null, blocked };
   ctx.acq = computeAcquire(ctx);
   return ctx;
 }
 
 // Evaluate every recipe. Returns rows sorted by profit per minute.
-export function evaluate(graph, prices, history, P, ref, morph, faction) {
-  const ctx = makeCtx(graph, prices, history, P, ref, morph, faction);
+export function evaluate(graph, prices, history, P, ref, morph, faction, factionMap) {
+  const ctx = makeCtx(graph, prices, history, P, ref, morph, faction, factionMap);
   const byKey = new Map();
   for (const [rid, r] of Object.entries(graph.recipes)) {
     if (!r.in || !r.in.length) continue;

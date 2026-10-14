@@ -1,8 +1,8 @@
-import { DEFAULTS, evaluate, tree, plan, flips, trendChange, itemName, maxTrade, isCapped, isThin, isOutlier } from './model/craft.js?v=15';
+import { DEFAULTS, evaluate, tree, plan, flips, trendChange, itemName, maxTrade, isCapped, isThin, isOutlier } from './model/craft.js?v=16';
 import { initI18n, setLang, getLang, t, tn, onLangChange } from './i18n.js?v=2';
 
 const $ = id => document.getElementById(id);
-let GRAPH = null, SERVERS = null, META = null, PRICES = {}, HISTORY = {}, REF = {}, TREND = {}, MORPH = {}, P = { ...DEFAULTS }, RESULT = null, SELECTED = null;
+let GRAPH = null, SERVERS = null, META = null, PRICES = {}, HISTORY = {}, REF = {}, TREND = {}, MORPH = {}, FACTION = {}, P = { ...DEFAULTS }, RESULT = null, SELECTED = null;
 let sortKey = 'ppm', sortDir = -1;
 let LAST_STATUS = null;
 
@@ -136,7 +136,7 @@ async function loadServerData(server) {
 window.recalc = async () => {
   const prev = P.server; readParams(); saveParams();
   if (P.server !== prev || !Object.keys(PRICES).length) await loadServerData(P.server);
-  RESULT = evaluate(GRAPH, PRICES, HISTORY, P, REF, MORPH, currentFaction());
+  RESULT = evaluate(GRAPH, PRICES, HISTORY, P, REF, MORPH, currentFaction(), FACTION);
   renderDynamic();
 };
 
@@ -295,6 +295,7 @@ async function init() {
     ]);
     REF = await loadJson('data/ref.json', 'no-cache').catch(() => ({}));
     MORPH = await loadJson('data/morph.json', 'no-cache').catch(() => ({}));
+    FACTION = await loadJson('data/faction.json', 'no-cache').catch(() => ({}));
     if (!GRAPH || !GRAPH.items || !GRAPH.recipes) throw new Error('graph.json: unexpected shape');
   } catch (e) {
     const el = $('meta');
