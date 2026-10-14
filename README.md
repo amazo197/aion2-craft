@@ -6,6 +6,7 @@ Fork of https://github.com/shizukaziye/aion2-craft.
 
 - Recipes and icons: the gamers4.life crafting graph (1,466 items, 2,442 recipes).
 - Substance Morph: `data/morph.json` maps each gathering resource to the Odyle it can be morphed from (1 Odyle -> 1 resource, same grade, bound). The model treats morphing as an alternative way to obtain an input, so it costs the cheaper of buying or morphing (e.g. Asvata Log from Odyle).
+- Faction: the selected server's faction hides faction-locked items (Asvata = Asmodian, Yggdrasil = Elyos), so an Asmodian never pays for Elyos materials. Upgrade recipes that consume a crafted item of the same class are flagged "transfer" (Transfer Crafting).
 - Prices: aion2.exchange cheapest listings per server, plus the 28-day sales statistics the game publishes for materials and consumables.
 - Cleared bands: for gear and accessories the game publishes no sales, so the bake infers what cleared from listings that vanished between 10-minute snapshots.
 - Thin asks: a price that stands on a lone listing with no sales and no cleared history is flagged "thin" (the RMT gap) and hidden by default under "verified prices only".

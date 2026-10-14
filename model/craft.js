@@ -91,6 +91,30 @@ export function itemName(graph, prices, k) {
   return (graph.items[k] && graph.items[k].n) || (prices[k] && prices[k].name) || k;
 }
 
+// Faction-locked item families: Asvata is Asmodian, Yggdrasil is Elyos.
+export function itemFaction(graph, k) {
+  const n = (graph.items[k] && graph.items[k].n) || '';
+  if (/Yggdrasil/.test(n)) return 'elyos';
+  if (/Asvata/.test(n)) return 'asmodian';
+  return null;
+}
+
+export function blockedFaction(graph, k, faction) {
+  if (!faction) return false;
+  const f = itemFaction(graph, k);
+  return !!f && f !== faction;
+}
+
+function recipeBlocked(r, blocked) {
+  if (!blocked) return false;
+  if (blocked(String(r.out))) return true;
+  for (const inp of r.in) {
+    if (blocked(String(inp[0]))) return true;
+    if (inp[2] && blocked(String(inp[2]))) return true;
+  }
+  return false;
+}
+
 const BOUND_RE = /\(Bound\)/i;
 // Bound items cannot be traded, so they are costed at the NPC price input.
 // The name suffix is the reliable signal (prefixed keys only cover part of them).
@@ -145,6 +169,7 @@ export function isCapped(k, ctx) {
 }
 
 export function buyPrice(k, ctx) {
+  if (ctx.blocked && ctx.blocked(k)) return null;   // faction-locked: cannot obtain/use
   const { prices, P } = ctx;
   if (k === ctx.rsKey && P.rsOverride > 0) return P.rsOverride;
   const row = prices[k];
@@ -226,12 +251,14 @@ export function computeAcquire(ctx) {
     if (!r.in || !r.in.length) continue;
     if (r.ml > ctx.P.maxMastery) continue;
     if (ctx.P.profession !== 'all' && r.p !== ctx.P.profession) continue;
+    if (recipeBlocked(r, ctx.blocked)) continue;
     usable.push([rid, r]);
   }
   for (let iter = 0; iter < 64; iter++) {
     let changed = false;
     // Substance Morph: an item can also be morphed from Odyle (grade for grade).
     for (const [k, mp] of Object.entries(morph)) {
+      if (ctx.blocked && (ctx.blocked(k) || ctx.blocked(mp.odyle))) continue;
       const o = acq.has(mp.odyle) ? acq.get(mp.odyle) : buyCandidate(mp.odyle, ctx);
       if (!o) continue;
       const cost = o.cost * (mp.qty || 1);
@@ -264,7 +291,8 @@ export function recipeCost(r, ctx) {
   return runRecipe(r, ctx, ctx.acq || new Map());
 }
 
-export function makeCtx(graph, prices, history, P, ref, morph) {
+export function makeCtx(graph, prices, history, P, ref, morph, faction) {
+  const blocked = faction ? (k => blockedFaction(graph, k, faction)) : null;
   // Candidate recipes per output, honouring the same mastery/profession limits
   // as evaluate(), so a cost route never assumes a craft the player cannot do.
   const byOut = new Map(), byCombo = new Map();
@@ -273,24 +301,26 @@ export function makeCtx(graph, prices, history, P, ref, morph) {
     if (!r.in || !r.in.length) continue;
     if (r.ml > P.maxMastery) continue;
     if (P.profession !== 'all' && r.p !== P.profession) continue;
+    if (recipeBlocked(r, blocked)) continue;
     push(byOut, String(r.out), rid);
     if (r.combo) push(byCombo, String(r.combo), rid);
   }
   let rsKey = null;
   for (const [k, v] of Object.entries(prices)) if (v.name === 'Refining Stone') rsKey = k;
-  const ctx = { graph, prices, history, P, byOut, byCombo, rsKey, keep: 1 - P.tax - P.listFee, ref: ref || null, morph: morph || null };
+  const ctx = { graph, prices, history, P, byOut, byCombo, rsKey, keep: 1 - P.tax - P.listFee, ref: ref || null, morph: morph || null, faction: faction || null, blocked };
   ctx.acq = computeAcquire(ctx);
   return ctx;
 }
 
 // Evaluate every recipe. Returns rows sorted by profit per minute.
-export function evaluate(graph, prices, history, P, ref, morph) {
-  const ctx = makeCtx(graph, prices, history, P, ref, morph);
+export function evaluate(graph, prices, history, P, ref, morph, faction) {
+  const ctx = makeCtx(graph, prices, history, P, ref, morph, faction);
   const byKey = new Map();
   for (const [rid, r] of Object.entries(graph.recipes)) {
     if (!r.in || !r.in.length) continue;
     if (P.profession !== 'all' && r.p !== P.profession) continue;
     if (r.ml > P.maxMastery) continue;
+    if (recipeBlocked(r, ctx.blocked)) continue;
     const out = String(r.out), combo = r.combo ? String(r.combo) : null;
     const name = itemName(graph, prices, out);
     const so = saleValue(out, ctx), sc = combo ? saleValue(combo, ctx) : null;
@@ -330,6 +360,15 @@ export function evaluate(graph, prices, history, P, ref, morph) {
       unverified: isThin(driving, ctx) || isOutlier(driving, ctx),
       outlier: isOutlier(driving, ctx),
       chg: pr.chg ?? null,
+      // Transfer Crafting: the recipe consumes a crafted item of the same equipment class
+      transfer: (() => {
+        const oo = graph.items[out];
+        if (!oo || (oo.mc !== 'weapon' && oo.mc !== 'armor' && oo.mc !== 'accessory')) return false;
+        return r.in.some(i => {
+          const ii = graph.items[String(i[0])];
+          return ii && ii.mc === oo.mc && (ctx.byOut.has(String(i[0])) || ctx.byCombo.has(String(i[0])));
+        });
+      })(),
     };
     // Same item+mastery can be produced by several recipes; keep the most profitable.
     const key = name + '|' + r.ml;

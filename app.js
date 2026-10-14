@@ -1,4 +1,4 @@
-import { DEFAULTS, evaluate, tree, plan, flips, trendChange, itemName, maxTrade, isCapped, isThin, isOutlier } from './model/craft.js?v=14';
+import { DEFAULTS, evaluate, tree, plan, flips, trendChange, itemName, maxTrade, isCapped, isThin, isOutlier } from './model/craft.js?v=15';
 import { initI18n, setLang, getLang, t, tn, onLangChange } from './i18n.js?v=2';
 
 const $ = id => document.getElementById(id);
@@ -24,6 +24,13 @@ const spark = k => {
   return `<svg class="spark" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}"><polyline points="${pts}" fill="none" stroke="var(--accent)" stroke-width="1.5"/></svg>`;
 };
 const HOW = { buy: 'how_buy', craft: 'how_craft', 'craft-combo': 'how_combo', npc: 'how_npc', morph: 'how_morph' };
+
+// Faction of the selected server ('elyos' | 'asmodian' | null), used to hide
+// faction-locked items/recipes (Asvata = Asmodian, Yggdrasil = Elyos).
+function currentFaction() {
+  const s = ((SERVERS && SERVERS.servers) || []).find(x => String(x.server_id) === String(P.server));
+  return s && s.faction ? String(s.faction).toLowerCase() : null;
+}
 
 function bakedLocal(iso) {
   if (!iso) return '';
@@ -129,7 +136,7 @@ async function loadServerData(server) {
 window.recalc = async () => {
   const prev = P.server; readParams(); saveParams();
   if (P.server !== prev || !Object.keys(PRICES).length) await loadServerData(P.server);
-  RESULT = evaluate(GRAPH, PRICES, HISTORY, P, REF, MORPH);
+  RESULT = evaluate(GRAPH, PRICES, HISTORY, P, REF, MORPH, currentFaction());
   renderDynamic();
 };
 
@@ -169,7 +176,7 @@ window.renderOpps = () => {
   const body = rows.slice(0, 400).map(r => {
     const h = r.hist, band = h && h.lo ? `${fmt(h.lo)}–${fmt(h.hi)} <span class="dim">(${t('gone_h', { gone: h.gone, hours: h.hours })})</span>` : h ? `<span class="dim">${t('gone_h', { gone: h.gone, hours: h.hours })}</span>` : '';
     return `<tr class="click ${SELECTED === r.rid ? 'sel' : ''}" onclick="pick('${r.rid}')">
-      <td><span class="name">${icon(r.out)}${esc(r.name)}</span><span class="pill">${esc(r.prof)}</span>${r.combo ? `<span class="pill">→ ${nm(r.combo)}</span>` : ''}${r.outlier ? ` <span class="pill bad" title="${t('outlier_title')}">${t('outlier')}</span>` : r.unverified ? ` <span class="pill bad" title="${t('unverified_title')}">${t('unverified')}</span>` : ''}</td>
+      <td><span class="name">${icon(r.out)}${esc(r.name)}</span><span class="pill">${esc(r.prof)}</span>${r.combo ? `<span class="pill">→ ${nm(r.combo)}</span>` : ''}${r.transfer ? ` <span class="pill" title="${t('transfer_title')}">${t('transfer')}</span>` : ''}${r.outlier ? ` <span class="pill bad" title="${t('outlier_title')}">${t('outlier')}</span>` : r.unverified ? ` <span class="pill bad" title="${t('unverified_title')}">${t('unverified')}</span>` : ''}</td>
       <td class="num">${r.ml}</td><td class="num ${cls(r.ppm)}">${fmt(r.ppm)}</td><td class="num ${cls(r.profitDay)}">${fmt(r.profitDay)}</td><td class="num ${cls(r.profit)}">${fmt(r.profit)}</td><td class="num ${cls(r.roi)}">${pct(r.roi)}</td>
       <td class="num">${fmt(r.cost)}</td><td class="num">${fmt(r.ev)}</td><td class="num">${r.mins.toFixed(1)}</td><td class="num">${r.days == null ? '–' : r.days.toFixed(1)}</td><td class="num">${r.crafts}</td>
       <td class="num">${fmt(r.plain)}</td><td class="num dim">${r.plainL}</td><td class="num">${fmt(r.green)}${r.capped ? ` <span class="pill bad" title="${t('cap_title')}">${t('capped')}</span>` : ''}</td><td class="num dim">${r.greenL}</td><td class="num">${fmt(r.maxTrade)}</td><td>${band}</td><td class="num">${fmt(r.breakEvenGreen)}</td><td class="num">${r.beSuccess == null ? '–' : pct(r.beSuccess)}</td><td class="num ${cls(r.chg)}">${r.chg == null ? '–' : r.chg.toFixed(0) + '%'}</td></tr>`;
@@ -251,6 +258,7 @@ window.renderFlip = () => {
   if (!RESULT) return;
   const q = $('flipSearch').value.trim().toLowerCase();
   let rows = flips(RESULT.ctx);
+  if (RESULT.ctx.blocked) rows = rows.filter(r => !RESULT.ctx.blocked(r.k));
   if ($('flipVerified').checked) rows = rows.filter(r => !r.unverified);
   if ($('flipProfit').checked) rows = rows.filter(r => r.profit > 0);
   if (q) rows = rows.filter(r => r.name.toLowerCase().includes(q));
@@ -262,7 +270,7 @@ window.renderFlip = () => {
 window.renderMarket = () => {
   if (!RESULT) return;
   const q = $('mktSearch').value.trim().toLowerCase(), sec = $('mktSection').value;
-  const rows = Object.entries(PRICES).filter(([k, v]) => (!q || v.name.toLowerCase().includes(q)) && (!sec || v.sec === sec));
+  const rows = Object.entries(PRICES).filter(([k, v]) => (!q || v.name.toLowerCase().includes(q)) && (!sec || v.sec === sec) && !(RESULT.ctx.blocked && RESULT.ctx.blocked(k)));
   rows.sort((a, b) => ((b[1].sold || 0) * (b[1].avg || b[1].p || 0)) - ((a[1].sold || 0) * (a[1].avg || a[1].p || 0)) || (b[1].p || 0) - (a[1].p || 0));
   $('mktCount').textContent = tn('n_items', rows.length);
   const craftable = new Set([...RESULT.ctx.byOut.keys(), ...RESULT.ctx.byCombo.keys()]);
