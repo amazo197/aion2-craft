@@ -647,8 +647,15 @@ async function loadJson(url, cache) {
   return r.json();
 }
 
+function renderLoading() {
+  $('oppTable').innerHTML = skeleton(10, 8);
+  $('mktTable').innerHTML = skeleton(8, 6);
+  $('flipTable').innerHTML = skeleton(8, 6);
+}
+
 async function init() {
   initI18n();
+  renderLoading();
   $('densityBtn').textContent = t(UI.density);
   setTab('opps', false);
   // tab keyboard + click
