@@ -1,14 +1,14 @@
 {
- "baked_at": "2026-11-01T06:20:52Z",
+ "baked_at": "2026-11-01T14:20:28Z",
  "servers": {
   "11101": {
-   "items": 910,
+   "items": 914,
    "history": 0,
    "has_sales": false
   },
   "11102": {
-   "items": 917,
-   "history": 254,
+   "items": 921,
+   "history": 255,
    "has_sales": false
   },
   "11304": {
@@ -17,13 +17,13 @@
    "has_sales": true
   },
   "12101": {
-   "items": 963,
+   "items": 967,
    "history": 0,
    "has_sales": false
   },
   "12302": {
-   "items": 971,
-   "history": 261,
+   "items": 973,
+   "history": 262,
    "has_sales": false
   }
  }
