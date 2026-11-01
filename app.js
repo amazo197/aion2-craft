@@ -1,19 +1,20 @@
 import { DEFAULTS, evaluate, tree, plan, flips, trendChange, itemName, maxTrade, isCapped, isThin, isOutlier } from './model/craft.js?v=17';
-import { initI18n, setLang, getLang, t, tn, onLangChange } from './i18n.js?v=4';
+import { initI18n, setLang, getLang, t, tn, onLangChange } from './i18n.js?v=5';
 
 const $ = id => document.getElementById(id);
 const qsa = sel => [...document.querySelectorAll(sel)];
 
 let GRAPH = null, SERVERS = null, META = null, PRICES = {}, HISTORY = {}, REF = {}, TREND = {}, MORPH = {}, FACTION = {}, P = { ...DEFAULTS }, RESULT = null, SELECTED = null;
-let LAST_STATUS = null;
+let LAST_STATUS = null, DATA_ERROR = null;
 let recalcTimer = 0;
 
 const locale = () => getLang() === 'ru' ? 'ru-RU' : 'en-US';
-const nf = new Intl.NumberFormat(locale());
+const isRu = () => getLang() === 'ru';
+const nf = digits => new Intl.NumberFormat(locale(), { maximumFractionDigits: digits });
 const fmt = n => {
   if (n == null || isNaN(n)) return '–';
-  if (Math.abs(n) >= 1e6) return (n / 1e6).toFixed(2) + 'M';
-  if (Math.abs(n) >= 1e4) return (n / 1e3).toFixed(1) + 'k';
+  if (Math.abs(n) >= 1e6) return nf(2).format(n / 1e6) + (isRu() ? ' млн' : 'M');
+  if (Math.abs(n) >= 1e4) return nf(1).format(n / 1e3) + (isRu() ? ' тыс.' : 'k');
   return Math.round(n).toLocaleString(locale());
 };
 const sign = n => n > 0 ? '+' : '';
@@ -22,9 +23,16 @@ const pct = n => {
   if (n == null || isNaN(n)) return '–';
   const v = n * 100;
   const abs = Math.abs(v);
-  return (abs > 0 && abs < 1 ? v.toFixed(1) : v.toFixed(0)) + '%';
+  return nf(abs > 0 && abs < 1 ? 1 : 0).format(v) + '%';
 };
 const spct = n => n == null || isNaN(n) ? '–' : sign(n) + pct(n);
+// The API sometimes emits impossible changes (< -100%); hide those, and cap
+// absurd values so a data glitch cannot dominate the screen.
+const spctChg = n => {
+  if (n == null || isNaN(n) || n < -100) return '–';
+  if (Math.abs(n) > 999) return sign(n) + '999%+';
+  return sign(n) + nf(0).format(n) + '%';   // chg is already a percentage
+};
 const cls = n => n > 0 ? 'good' : n < 0 ? 'bad' : '';
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const icon = k => {
@@ -85,14 +93,18 @@ const oppVisibleCols = () => OPP_COLS.filter(c => c.always || UI.cols[c.k]);
 /* ---------- sorting / paging ---------- */
 const SORT = {
   opps: { key: 'ppm', dir: -1 },
-  market: { key: 'sold', dir: -1 },
+  market: { key: 'listings', dir: -1 },
   flip: { key: 'roiDay', dir: -1 },
 };
 const PAGE = { opps: 50, market: 60, flip: 50 };
 window.setSort = (tab, key) => {
   const s = SORT[tab];
-  if (s.key === key) s.dir = -s.dir; else { s.key = key; s.dir = -1; }
+  if (s.key === key) s.dir = -s.dir;
+  else { s.key = key; s.dir = (key === 'name' || key === 'item') ? 1 : -1; }
   ({ opps: window.renderOpps, market: window.renderMarket, flip: window.renderFlip }[tab])();
+  const tableId = { opps: 'oppTable', market: 'mktTable', flip: 'flipTable' }[tab];
+  const btn = document.querySelector(`#${tableId} thead button[data-key="${key}"]`);
+  if (btn) btn.focus();
 };
 window.showMore = tab => {
   PAGE[tab] += 50;
@@ -137,20 +149,20 @@ function renderMeta() {
     return;
   }
   const h = ageHours(META.baked_at);
-  const level = h == null ? '' : h < 2 ? 'fresh' : h < 24 ? 'warn' : 'stale';
+  const level = DATA_ERROR ? 'stale' : h == null ? '' : h < 6 ? 'fresh' : h < 24 ? 'warn' : 'stale';
   chip.className = 'chip ' + level;
-  chip.textContent = relTime(META.baked_at);
+  chip.textContent = DATA_ERROR ? t('error_title') : relTime(META.baked_at);
   chip.title = t('baked', { time: bakedLocal(META.baked_at), rel: relTime(META.baked_at) }) + ' · UTC ' + META.baked_at;
   chip.onclick = () => reloadPrices();
   const stale = h != null && h >= 24;
-  banner.hidden = !stale;
+  banner.hidden = !stale || !!DATA_ERROR;
   if (stale) {
     $('staleText').textContent = t('stale_text', { time: bakedLocal(META.baked_at), rel: relTime(META.baked_at) });
   }
   const kp = $('kpiFresh');
   if (kp) {
-    kp.textContent = relTime(META.baked_at);
-    kp.className = cls(level === 'stale' ? -1 : 1);
+    kp.textContent = DATA_ERROR ? t('error_title') : relTime(META.baked_at);
+    kp.className = level === 'fresh' ? 'good' : level === 'warn' ? 'warn' : level === 'stale' ? 'bad' : '';
     const srv = serverName(P.server);
     $('kpiFreshSub').textContent = srv + ' · ' + bakedLocal(META.baked_at);
   }
@@ -180,17 +192,37 @@ function currentFaction() {
   return s && s.faction ? String(s.faction).toLowerCase() : null;
 }
 
+function showDataError(msg) {
+  const el = $('dataError');
+  if (!el) return;
+  el.hidden = false;
+  $('dataErrorText').textContent = t('price_error') + (msg ? ': ' + msg : '');
+}
+function hideDataError() {
+  const el = $('dataError');
+  if (el) el.hidden = true;
+}
+
 async function loadServerData(server) {
   LAST_STATUS = ['loading_prices', {}];
   renderStatus();
   try {
     const d = await (await fetch(`data/prices_${server}.json`, { cache: 'no-cache' })).json();
-    PRICES = d.prices || {}; HISTORY = d.history || {};
+    const nextPrices = d.prices || {}, nextHistory = d.history || {};
+    // guard against impossible percentage changes from the source
+    for (const v of Object.values(nextPrices)) {
+      if (v.chg != null && (!isFinite(v.chg) || v.chg < -100)) v.chg = null;
+    }
+    PRICES = nextPrices; HISTORY = nextHistory;
     TREND = await fetch(`data/trend_${server}.json`, { cache: 'no-cache' }).then(r => r.ok ? r.json() : {}).catch(() => ({}));
+    DATA_ERROR = null;
+    hideDataError();
     LAST_STATUS = ['status_loaded', { items: Object.keys(PRICES).length, hist: Object.keys(HISTORY).length, time: bakedLocal(d.baked_at) }];
   } catch (e) {
-    PRICES = {}; HISTORY = {}; TREND = {};
-    LAST_STATUS = ['status_noprices', { s: server }];
+    // keep the last good prices visible; surface the failure instead of an empty table
+    DATA_ERROR = String(e && e.message || e);
+    showDataError(DATA_ERROR);
+    LAST_STATUS = ['status_error', { s: server, e: DATA_ERROR }];
   }
   renderStatus();
 }
@@ -255,28 +287,59 @@ function scheduleRecalc() {
 }
 
 /* ---------- sidebar drawer ---------- */
+function isDrawer() { return window.matchMedia('(max-width: 1279px)').matches; }
+function syncDrawer(returnFocus) {
+  const sb = $('sidebar'), sc = $('scrim'), btn = $('paramsBtn');
+  if (!isDrawer()) {
+    sb.classList.remove('open'); sb.inert = false;
+    sb.removeAttribute('aria-hidden'); sb.removeAttribute('role'); sb.removeAttribute('aria-modal');
+    sc.hidden = true; document.body.classList.remove('drawer-open');
+    if (btn) btn.setAttribute('aria-expanded', 'false');
+    return;
+  }
+  const open = sb.classList.contains('open');
+  sb.inert = !open;
+  if (open) {
+    sb.removeAttribute('aria-hidden');
+    sb.setAttribute('role', 'dialog'); sb.setAttribute('aria-modal', 'true');
+    sc.hidden = false; document.body.classList.add('drawer-open');
+    $('main').inert = true;
+    if (btn) btn.setAttribute('aria-expanded', 'true');
+  } else {
+    sb.setAttribute('aria-hidden', 'true');
+    sb.removeAttribute('role'); sb.removeAttribute('aria-modal');
+    sc.hidden = true; document.body.classList.remove('drawer-open');
+    $('main').inert = false;
+    if (btn) btn.setAttribute('aria-expanded', 'false');
+    if (returnFocus && btn) btn.focus();
+  }
+}
 window.openParams = () => {
   $('sidebar').classList.add('open');
-  $('scrim').hidden = false;
-  document.body.classList.add('drawer-open');
+  syncDrawer(false);
   const first = $('sidebar').querySelector('select, input, button');
   if (first) first.focus();
 };
 window.closeParams = () => {
   $('sidebar').classList.remove('open');
-  $('scrim').hidden = true;
-  document.body.classList.remove('drawer-open');
+  syncDrawer(true);
 };
 
 /* ---------- tabs ---------- */
 const TABS = ['opps', 'recipe', 'market', 'plan', 'flip'];
 window.setTab = (id, push = true) => {
   if (!TABS.includes(id)) id = 'opps';
-  for (const b of qsa('.tabs [role="tab"]')) b.setAttribute('aria-selected', String(b.dataset.tab === id));
+  for (const b of qsa('.tabs [role="tab"]')) {
+    b.setAttribute('aria-selected', String(b.dataset.tab === id));
+    b.tabIndex = b.dataset.tab === id ? 0 : -1;
+  }
   for (const p of qsa('.tabpanel')) p.classList.toggle('on', p.id === id);
   if (push) {
     const h = id === 'recipe' && SELECTED ? `#recipe/${SELECTED}` : '#' + id;
-    if (location.hash !== h) history.replaceState(null, '', h);
+    if (location.hash !== h) {
+      history.pushState(null, '', h);
+      window.scrollTo(0, 0);
+    }
   }
 };
 function tabFromHash() {
@@ -308,12 +371,14 @@ function renderKpis() {
   const verified = rows.filter(r => !r.unverified);
   const pos = verified.filter(r => r.profit > 0);
   $('kpiOpps').textContent = pos.length.toLocaleString(locale());
-  $('kpiOppsSub').textContent = t('kpi_opps_sub', { total: rows.length });
+  $('kpiOppsSub').textContent = t('kpi_opps_sub', { total: rows.length, pos: pos.length });
   const best = arr => arr.reduce((a, b) => (a == null || (b != null && b > a)) ? b : a, null);
   const day = best(pos.map(r => r.profitDay));
   const dayRow = day == null ? null : pos.find(r => r.profitDay === day);
   $('kpiBestDay').textContent = day == null ? '–' : fmt(day);
-  $('kpiBestDaySub').textContent = dayRow ? dayRow.name : t('no_data');
+  $('kpiBestDaySub').textContent = dayRow
+    ? dayRow.name + (dayRow.days != null ? ' · ' + dayRow.days.toFixed(1) + ' ' + t('days_unit') : '')
+    : t('no_data');
   const roi = best(pos.map(r => r.roi));
   const roiRow = roi == null ? null : pos.find(r => r.roi === roi);
   $('kpiBestRoi').textContent = roi == null ? '–' : pct(roi);
@@ -360,6 +425,7 @@ window.removeFilter = k => {
   if (el) $(el).checked = !$(el).checked;
   if (k === 'minGone') $('minGone').value = 1;
   onOppFilterChange();
+  $('oppFilterBtn').focus();
 };
 window.onOppFilterChange = () => { PAGE.opps = 50; renderOpps(); };
 window.onOppInput = () => { PAGE.opps = 50; renderOpps(); };
@@ -398,7 +464,8 @@ window.toggleDensity = () => {
   UI.density = UI.density === 'compact' ? 'comfortable' : 'compact';
   saveUi();
   $('densityBtn').textContent = t(UI.density);
-  renderOpps();
+  $('densityBtn').setAttribute('aria-pressed', String(UI.density === 'compact'));
+  renderOpps(); renderMarket(); renderFlip(); renderPlan();
 };
 
 /* ---------- table helpers ---------- */
@@ -408,7 +475,7 @@ function headHtml(cols, sort, tab, labels) {
     if (!c.k || c.sortable === false) return `<th scope="col" class="${isNum ? 'num' : ''}">${esc(t(labels ? labels[c.k] : c.l))}</th>`;
     const active = sort.key === c.k;
     const aria = active ? (sort.dir < 0 ? 'descending' : 'ascending') : 'none';
-    return `<th scope="col" class="${isNum ? 'num' : ''}" aria-sort="${aria}"><button type="button" class="th-sort" onclick="setSort('${tab}','${c.k}')">${esc(t(labels ? labels[c.k] : c.l))}<span class="arrow" aria-hidden="true">${active ? (sort.dir < 0 ? '▾' : '▴') : ''}</span></button></th>`;
+    return `<th scope="col" class="${isNum ? 'num' : ''}" aria-sort="${aria}"><button type="button" class="th-sort" data-key="${esc(c.k)}" onclick="setSort('${tab}','${c.k}')">${esc(t(labels ? labels[c.k] : c.l))}<span class="arrow" aria-hidden="true">${active ? (sort.dir < 0 ? '▾' : '▴') : ''}</span></button></th>`;
   }).join('') + '</tr></thead>';
 }
 function skeleton(rows, cols) {
@@ -435,7 +502,13 @@ function statusBadges(r) {
 window.renderOpps = () => {
   const cols = oppVisibleCols();
   const sort = SORT.opps;
-  if (!RESULT) { $('oppTable').innerHTML = skeleton(10, cols.length); $('oppCount').textContent = '–'; $('oppMore').hidden = true; return; }
+  if (!RESULT) {
+    $('oppTable').innerHTML = skeleton(10, Math.max(8, cols.length));
+    $('oppTable').classList.toggle('compact', UI.density === 'compact');
+    $('oppCount').textContent = '–';
+    $('oppMore').hidden = true;
+    return;
+  }
   let rows = filterOppRows();
   rows = sortRows(rows, sort, (r, k) => r[k]);
   renderChips();
@@ -443,7 +516,7 @@ window.renderOpps = () => {
   const shown = rows.slice(0, PAGE.opps);
   $('oppCount').textContent = t('n_of_m', { shown: shown.length, total });
   const head = headHtml(cols, sort, 'opps');
-  const body = shown.map(r => {
+  const body = shown.map((r, idx) => {
     const cells = cols.map(c => {
       const label = t(c.l);
       const mobile = ['ml', 'cost', 'plainL'].includes(c.k) || c.opt ? ' hide-mobile' : '';
@@ -456,20 +529,34 @@ window.renderOpps = () => {
       if (c.k === 'days') return `<td data-label="${esc(label)}" class="num num-cell${mobile}">${v == null ? '–' : v.toFixed(1)}</td>`;
       if (c.k === 'ml' || c.k === 'crafts' || c.k === 'plainL') return `<td data-label="${esc(label)}" class="num num-cell${mobile}">${v ?? '–'}</td>`;
       if (c.k === 'roi' || c.k === 'beSuccess') return `<td data-label="${esc(label)}" class="num num-cell ${cls(v)}${mobile}">${spct(v)}</td>`;
-      if (c.k === 'chg') return `<td data-label="${esc(label)}" class="num num-cell ${cls(v)}${mobile}">${spct(v)}</td>`;
+      if (c.k === 'chg') return `<td data-label="${esc(label)}" class="num num-cell ${cls(v)}${mobile}">${spctChg(v)}</td>`;
       if (c.k === 'ppm' || c.k === 'profitDay' || c.k === 'profit' || c.k === 'ev') return `<td data-label="${esc(label)}" class="num num-cell ${cls(v)}${mobile}">${sfmt(v)}</td>`;
       if (c.k === 'bandLo') return `<td data-label="${esc(label)}" class="num num-cell dim${mobile}">${fmt(v)}</td>`;
       if (c.k === 'mx') return `<td>${v ?? ''}</td>`;
       return `<td data-label="${esc(label)}" class="num num-cell${mobile}">${fmt(v)}</td>`;
     }).join('');
-    return `<tr class="click${SELECTED === r.rid ? ' sel' : ''}" tabindex="0" onclick="pick('${r.rid}')" onkeydown="rowKey(event,'${r.rid}')">${cells}</tr>`;
+    return `<tr class="click${SELECTED === r.rid ? ' sel' : ''}" tabindex="${idx === 0 ? 0 : -1}" onclick="pick('${r.rid}')" onkeydown="rowKey(event,'${r.rid}',this)">${cells}</tr>`;
   }).join('');
-  $('oppTable').innerHTML = total ? head + '<tbody>' + body + '</tbody>'
-    : head + emptyRow(cols.length, t('empty_search'), `<button type="button" class="btn small" onclick="resetOppFilters()">${esc(t('reset_filters'))}</button>`);
+  const empty = DATA_ERROR && !Object.keys(PRICES).length
+    ? emptyRow(cols.length, t('price_error'), `<button type="button" class="btn small" onclick="reloadPrices()">${esc(t('retry'))}</button>`)
+    : emptyRow(cols.length, t('empty_search'), `<button type="button" class="btn small" onclick="resetOppFilters()">${esc(t('reset_filters'))}</button>`);
+  $('oppTable').innerHTML = total ? head + '<tbody>' + body + '</tbody>' : head + empty;
+  $('oppTable').classList.toggle('compact', UI.density === 'compact');
   $('oppMore').hidden = total <= PAGE.opps;
   $('oppMore').textContent = moreLabel(PAGE.opps, total);
 };
-window.rowKey = (e, rid) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pick(rid); } };
+window.rowKey = (e, rid, el) => {
+  if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pick(rid); return; }
+  if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
+  e.preventDefault();
+  const next = e.key === 'ArrowDown' ? el.nextElementSibling : el.previousElementSibling;
+  if (next && next.tagName === 'TR') { el.tabIndex = -1; next.tabIndex = 0; next.focus(); }
+};
+window.setMobileSort = key => {
+  SORT.opps = { key, dir: (key === 'name') ? 1 : -1 };
+  PAGE.opps = 15;
+  renderOpps();
+};
 
 /* ---------- recipe ---------- */
 window.pick = rid => {
@@ -490,7 +577,7 @@ function mktRow(k) {
   const h = HISTORY[k];
   const c7 = trendChange(TREND, k, 7);
   return `<div class="kv">
-    <div>${esc(t('ask'))}</div><div>${fmt(v.p)} <span class="dim">${esc(t('n_listings', { n: v.n }))}</span></div>
+    <div>${esc(t('ask'))}</div><div>${fmt(v.p)} <span class="dim">${esc(tn('n_listings', v.n))}</span></div>
     <div>${esc(t('d28_sold'))}</div><div>${v.sold ? esc(t('sold_line', { sold: v.sold.toLocaleString(locale()), avg: fmt(v.avg), min: fmt(v.smin), max: fmt(v.smax) })) : `<span class="dim">${esc(t('not_published'))}</span>`}</div>
     <div>${esc(t('cleared_band'))}</div><div>${h ? (h.lo ? `${fmt(h.lo)}–${fmt(h.hi)}` : `<span class="dim">${esc(t('no_priced_event'))}</span>`) + ` <span class="dim">· ${esc(t('hist_line', { gone: h.gone, hours: h.hours, low: fmt(h.low24), high: fmt(h.high24) }))}</span>` : `<span class="dim">${esc(t('no_history'))}</span>`}</div>
     <div>${esc(t('highest_trade'))}</div><div>${fmt(maxTrade(k, RESULT.ctx))}${isCapped(k, RESULT.ctx) ? ` <span class="badge warn">${esc(t('ask_capped'))}</span>` : ''}</div>
@@ -547,7 +634,7 @@ window.renderPlan = () => {
   $('planSummary').textContent = p.mix.length
     ? tn('n_recipes', p.mix.length) + ' · ' + t('plan_summary', { profit: fmt(p.profit), mins: Math.round(p.mins), cost: fmt(p.cost) })
     : t('plan_none');
-  const head = '<thead><tr><th scope="col">' + esc(t('c_recipe')) + '</th><th scope="col" class="num">' + esc(t('plan_crafts')) + '</th><th scope="col" class="num">' + esc(t('c_cost')) + '</th><th scope="col" class="num">' + esc(t('c_mins')) + '</th><th scope="col" class="num">' + esc(t('c_profit')) + '</th></tr></thead>';
+  const head = '<thead><tr><th scope="col">' + esc(t('c_recipe')) + '</th><th scope="col" class="num">' + esc(t('plan_crafts')) + '</th><th scope="col" class="num">' + esc(t('c_cost')) + '</th><th scope="col" class="num">' + esc(t('c_mins')) + '</th><th scope="col" class="num">' + esc(t('c_profit_total')) + '</th></tr></thead>';
   const body = p.mix.map(m => {
     const row = RESULT.rows.find(x => x.rid === m.rid);
     return `<tr class="click" tabindex="0" onclick="pick('${m.rid}')" onkeydown="rowKey(event,'${m.rid}')">
@@ -555,9 +642,10 @@ window.renderPlan = () => {
       <td data-label="${esc(t('plan_crafts'))}" class="num num-cell">${m.x.toFixed(1)}</td>
       <td data-label="${esc(t('c_cost'))}" class="num num-cell">${fmt(m.x * m.cost)}</td>
       <td data-label="${esc(t('c_mins'))}" class="num num-cell">${fmt(m.x * m.mins)}</td>
-      <td data-label="${esc(t('c_profit'))}" class="num num-cell good">${fmt(m.x * m.profit)}</td></tr>`;
+      <td data-label="${esc(t('c_profit_total'))}" class="num num-cell good">${fmt(m.x * m.profit)}</td></tr>`;
   }).join('');
   $('planTable').innerHTML = p.mix.length ? head + '<tbody>' + body + '</tbody>' : emptyRow(5, t('plan_none'));
+  $('planTable').classList.toggle('compact', UI.density === 'compact');
 };
 
 /* ---------- flip ---------- */
@@ -587,10 +675,14 @@ window.renderFlip = () => {
       <td data-label="${esc(t('f_roiDay'))}" class="num num-cell ${cls(r.roiDay)}">${r.roiDay == null ? '–' : spct(r.roiDay)}</td>
       <td data-label="${esc(t('c_days'))}" class="num num-cell hide-mobile">${r.days == null ? '–' : r.days.toFixed(1)}</td>
       <td data-label="${esc(t('c_plainL'))}" class="num num-cell hide-mobile">${r.n}</td>
-      <td data-label="${esc(t('m_chg'))}" class="num num-cell ${cls(r.chg)} hide-mobile">${spct(r.chg)}</td>
+      <td data-label="${esc(t('m_chg'))}" class="num num-cell ${cls(r.chg)} hide-mobile">${spctChg(r.chg)}</td>
       <td data-label="${esc(t('trend7'))}" class="num num-cell ${cls(c7)} hide-mobile">${c7 == null ? '–' : spct(c7)}</td></tr>`;
   }).join('');
-  $('flipTable').innerHTML = total ? headHtml(cols, SORT.flip, 'flip') + '<tbody>' + body + '</tbody>' : headHtml(cols, SORT.flip, 'flip') + emptyRow(cols.length, t('empty_search'));
+  const flipEmpty = DATA_ERROR && !Object.keys(PRICES).length
+    ? emptyRow(cols.length, t('price_error'), `<button type="button" class="btn small" onclick="reloadPrices()">${esc(t('retry'))}</button>`)
+    : emptyRow(cols.length, t('empty_search'));
+  $('flipTable').innerHTML = total ? headHtml(cols, SORT.flip, 'flip') + '<tbody>' + body + '</tbody>' : headHtml(cols, SORT.flip, 'flip') + flipEmpty;
+  $('flipTable').classList.toggle('compact', UI.density === 'compact');
   $('flipMore').hidden = total <= PAGE.flip;
   $('flipMore').textContent = moreLabel(PAGE.flip, total);
 };
@@ -619,14 +711,18 @@ window.renderMarket = () => {
     return `<tr>
       <td data-label="${esc(t('m_item'))}"><div class="name-cell">${icon(k)}<div><div class="nm" title="${esc(v.name)}">${esc(v.name)}</div><div class="sub">${esc(v.cat)}</div></div></div></td>
       <td data-label="${esc(t('ask'))}" class="num num-cell">${fmt(v.p)}</td>
-      <td data-label="${esc(t('m_chg'))}" class="num num-cell ${cls(v.chg)}">${spct(v.chg)}</td>
+      <td data-label="${esc(t('m_chg'))}" class="num num-cell ${cls(v.chg)}">${spctChg(v.chg)}</td>
       <td data-label="${esc(t('trend7'))}" class="num num-cell ${cls(c7)} hide-mobile">${c7 == null ? '–' : spct(c7)}</td>
       <td data-label="${esc(t('m_sold28'))}" class="num num-cell hide-mobile">${v.sold ? v.sold.toLocaleString(locale()) : '–'}</td>
       <td data-label="${esc(t('m_avg'))}" class="num num-cell hide-mobile">${fmt(v.avg)}</td>
       <td data-label="${esc(t('cleared_band'))}" class="hide-mobile">${h && h.lo ? `${fmt(h.lo)}–${fmt(h.hi)} <span class="dim">(${esc(t('gone_h', { gone: h.gone, hours: h.hours }))})</span>` : h ? `<span class="dim">${esc(t('gone_h', { gone: h.gone, hours: h.hours }))}</span>` : ''}</td>
       <td data-label="${esc(t('m_craft'))}">${craftable.has(k) ? `<button type="button" class="btn small" onclick="pick('${ridFor(k)}')">${esc(t('recipe_btn'))}</button>` : ''}</td></tr>`;
   }).join('');
-  $('mktTable').innerHTML = total ? headHtml(cols, SORT.market, 'market') + '<tbody>' + body + '</tbody>' : headHtml(cols, SORT.market, 'market') + emptyRow(cols.length, t('empty_search'));
+  const mktEmpty = DATA_ERROR && !Object.keys(PRICES).length
+    ? emptyRow(cols.length, t('price_error'), `<button type="button" class="btn small" onclick="reloadPrices()">${esc(t('retry'))}</button>`)
+    : emptyRow(cols.length, t('empty_search'));
+  $('mktTable').innerHTML = total ? headHtml(cols, SORT.market, 'market') + '<tbody>' + body + '</tbody>' : headHtml(cols, SORT.market, 'market') + mktEmpty;
+  $('mktTable').classList.toggle('compact', UI.density === 'compact');
   $('mktMore').hidden = total <= PAGE.market;
   $('mktMore').textContent = moreLabel(PAGE.market, total);
 };
@@ -657,6 +753,9 @@ async function init() {
   initI18n();
   renderLoading();
   $('densityBtn').textContent = t(UI.density);
+  $('densityBtn').setAttribute('aria-pressed', String(UI.density === 'compact'));
+  if (window.matchMedia('(max-width: 640px)').matches) { PAGE.opps = 15; PAGE.market = 20; PAGE.flip = 15; }
+  syncDrawer(false);
   setTab('opps', false);
   // tab keyboard + click
   for (const b of qsa('.tabs [role="tab"]')) {
@@ -675,6 +774,17 @@ async function init() {
     });
   }
   window.addEventListener('hashchange', tabFromHash);
+  window.addEventListener('popstate', tabFromHash);
+  window.addEventListener('resize', () => syncDrawer(false));
+  document.addEventListener('keydown', e => {
+    if (e.key !== 'Escape') return;
+    for (const [btn, pop] of [[$('oppFilterBtn'), $('oppFilterPop')], [$('columnsBtn'), $('columnsPop')]]) {
+      if (btn && pop && !pop.hidden) {
+        pop.hidden = true; btn.setAttribute('aria-expanded', 'false'); btn.focus();
+      }
+    }
+    if ($('sidebar').classList.contains('open')) closeParams();
+  });
   try {
     [GRAPH, SERVERS, META] = await Promise.all([
       loadJson('data/graph.json'),

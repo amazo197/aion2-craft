@@ -5,9 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Aion 2 Craft Market</title>
 <link rel="icon" href="data:,">
-<link rel="stylesheet" href="styles.css?v=7">
+<link rel="stylesheet" href="styles.css?v=8">
 </head>
 <body>
+<a class="skip" href="#main" data-i18n="skip">Skip to content</a>
+<h1 class="sr-only">Aion 2 Craft Market</h1>
 <header class="topbar">
   <a class="brand" href="#opps">Aion 2 <span>Market</span></a>
   <div class="top-ctx">
@@ -18,7 +20,7 @@
     <button type="button" class="chip" id="freshness" aria-live="polite">–</button>
   </div>
   <div class="top-actions">
-    <button type="button" class="icon-btn" id="paramsBtn" onclick="openParams()" aria-label="Parameters" title="Parameters">⚙</button>
+    <button type="button" class="icon-btn" id="paramsBtn" onclick="openParams()" aria-label="Parameters" data-i18n-aria="aria_params" title="Parameters">⚙</button>
     <label class="lang-field">
       <span class="ctx-label" data-i18n="l_lang">Language</span>
       <select id="lang" onchange="setLanguage(this.value)"><option value="en">EN</option><option value="ru">RU</option></select>
@@ -27,10 +29,10 @@
 </header>
 
 <div class="shell">
-  <aside class="sidebar" id="sidebar" aria-label="Parameters">
+  <aside class="sidebar" id="sidebar" aria-label="Parameters" data-i18n-aria="aria_params">
     <div class="sidebar-head">
       <h2 data-i18n="inputs">Parameters</h2>
-      <button type="button" class="icon-btn sidebar-close" onclick="closeParams()" aria-label="Close">✕</button>
+      <button type="button" class="icon-btn sidebar-close" onclick="closeParams()" aria-label="Close" data-i18n-aria="aria_close">✕</button>
     </div>
     <div class="params-scroll">
       <div class="pgroup">
@@ -82,7 +84,7 @@
   <div class="scrim" id="scrim" onclick="closeParams()" hidden></div>
 
   <main class="main" id="main">
-    <section class="kpis" aria-label="Summary">
+    <section class="kpis" aria-label="Summary" data-i18n-aria="aria_summary">
       <article class="kpi"><span class="kpi-label" data-i18n="kpi_opps">Opportunities</span><strong id="kpiOpps">–</strong><small id="kpiOppsSub"></small></article>
       <article class="kpi"><span class="kpi-label" data-i18n="kpi_best_day">Best kina/day</span><strong id="kpiBestDay">–</strong><small id="kpiBestDaySub"></small></article>
       <article class="kpi"><span class="kpi-label" data-i18n="kpi_best_roi">Best ROI</span><strong id="kpiBestRoi">–</strong><small id="kpiBestRoiSub"></small></article>
@@ -93,8 +95,12 @@
       <span id="staleText"></span>
       <button type="button" class="btn small" onclick="location.reload()" data-i18n="btn_refresh">Refresh</button>
     </div>
+    <div class="data-error" id="dataError" role="alert" hidden>
+      <span id="dataErrorText"></span>
+      <button type="button" class="btn small" onclick="reloadPrices()" data-i18n="retry">Retry</button>
+    </div>
 
-    <nav class="tabs" role="tablist" aria-label="Sections">
+    <nav class="tabs" role="tablist" aria-label="Sections" data-i18n-aria="aria_sections">
       <button role="tab" id="tab-opps" data-tab="opps" aria-controls="opps" aria-selected="true" data-i18n="tab_opps">Opportunities</button>
       <button role="tab" id="tab-recipe" data-tab="recipe" aria-controls="recipe" aria-selected="false" data-i18n="tab_recipe">Recipe</button>
       <button role="tab" id="tab-market" data-tab="market" aria-controls="market" aria-selected="false" data-i18n="tab_market">Market</button>
@@ -106,7 +112,7 @@
       <div class="toolbar">
         <div class="searchbox">
           <span class="search-ico" aria-hidden="true">⌕</span>
-          <input id="oppSearch" type="search" data-i18n-ph="ph_filter_recipes" placeholder="filter recipe name…" aria-label="Filter recipes" oninput="onOppInput()">
+          <input id="oppSearch" type="search" data-i18n-ph="ph_filter_recipes" placeholder="filter recipe name…" aria-label="Filter recipes" data-i18n-aria="aria_filter_recipes" oninput="onOppInput()">
           <button type="button" class="clear-btn" onclick="clearSearch('oppSearch','renderOpps')" aria-label="Clear">✕</button>
         </div>
         <div class="filter-wrap">
@@ -122,6 +128,13 @@
             <div class="popover-foot"><button type="button" class="btn ghost small" onclick="resetOppFilters()" data-i18n="reset_filters">Reset filters</button></div>
           </div>
         </div>
+        <select id="mobileSort" class="mobile-only" onchange="setMobileSort(this.value)" data-i18n-aria="sort_by" aria-label="Sort by" data-i18n-aria="aria_sort_by">
+          <option value="ppm" data-i18n="c_ppm">kina/min</option>
+          <option value="profitDay" data-i18n="c_profitDay">kina/day</option>
+          <option value="roi" data-i18n="c_roi">ROI</option>
+          <option value="profit" data-i18n="c_profit">profit</option>
+          <option value="days" data-i18n="c_days">days</option>
+        </select>
         <div class="toolbar-spacer"></div>
         <button type="button" class="btn ghost" id="densityBtn" onclick="toggleDensity()" data-i18n="density">Density</button>
         <div class="col-wrap">
@@ -131,7 +144,7 @@
         <span class="count" id="oppCount" aria-live="polite"></span>
       </div>
       <div class="chips" id="oppChips"></div>
-      <div class="tablewrap" tabindex="0" role="region" aria-label="Opportunities table">
+      <div class="tablewrap" tabindex="0" role="region" aria-label="Opportunities table" data-i18n-aria="aria_table_opps">
         <table id="oppTable" class="data-table"></table>
       </div>
       <div class="loadmore"><button type="button" class="btn ghost" id="oppMore" onclick="showMore('opps')" hidden></button></div>
@@ -140,7 +153,7 @@
     <section class="tabpanel" id="recipe" role="tabpanel" aria-labelledby="tab-recipe" tabindex="0">
       <div class="toolbar">
         <div class="searchbox"><span class="search-ico" aria-hidden="true">⌕</span>
-          <input id="recipeSearch" type="search" data-i18n-ph="ph_search_item" placeholder="search item to craft…" aria-label="Search item" oninput="recipeSuggest()">
+          <input id="recipeSearch" type="search" data-i18n-ph="ph_search_item" placeholder="search item to craft…" aria-label="Search item" data-i18n-aria="aria_search_item" oninput="recipeSuggest()">
           <button type="button" class="clear-btn" onclick="clearSearch('recipeSearch','recipeSuggest')" aria-label="Clear">✕</button>
         </div>
         <div id="recipeSuggestions" class="suggestions"></div>
@@ -154,14 +167,14 @@
     <section class="tabpanel" id="market" role="tabpanel" aria-labelledby="tab-market" tabindex="0">
       <div class="toolbar">
         <div class="searchbox"><span class="search-ico" aria-hidden="true">⌕</span>
-          <input id="mktSearch" type="search" data-i18n-ph="ph_filter_item" placeholder="filter item…" aria-label="Filter items" oninput="onMarketInput()">
+          <input id="mktSearch" type="search" data-i18n-ph="ph_filter_item" placeholder="filter item…" aria-label="Filter items" data-i18n-aria="aria_filter_items" oninput="onMarketInput()">
           <button type="button" class="clear-btn" onclick="clearSearch('mktSearch','renderMarket')" aria-label="Clear">✕</button>
         </div>
-        <select id="mktSection" onchange="renderMarket()" data-i18n-aria="m_section" aria-label="Section"><option value="" data-i18n="all_sections">all sections</option></select>
+        <select id="mktSection" onchange="renderMarket()" data-i18n-aria="m_section" aria-label="Section" data-i18n-aria="aria_section"><option value="" data-i18n="all_sections">all sections</option></select>
         <div class="toolbar-spacer"></div>
         <span class="count" id="mktCount" aria-live="polite"></span>
       </div>
-      <div class="tablewrap" tabindex="0" role="region" aria-label="Market table">
+      <div class="tablewrap" tabindex="0" role="region" aria-label="Market table" data-i18n-aria="aria_table_market">
         <table id="mktTable" class="data-table"></table>
       </div>
       <div class="loadmore"><button type="button" class="btn ghost" id="mktMore" onclick="showMore('market')" hidden></button></div>
@@ -175,13 +188,13 @@
         <div class="mini-kpi"><span data-i18n="plan_hours">Time</span><strong id="planTime">–</strong></div>
       </div>
       <div class="toolbar"><span class="hint" data-i18n="plan_hint">Craft this mix for your budget and hours; only verified recipes with listings.</span><span class="toolbar-spacer"></span><span class="count" id="planSummary" aria-live="polite"></span></div>
-      <div class="tablewrap" tabindex="0" role="region" aria-label="Plan table"><table id="planTable" class="data-table"></table></div>
+      <div class="tablewrap" tabindex="0" role="region" aria-label="Plan table" data-i18n-aria="aria_table_plan"><table id="planTable" class="data-table"></table></div>
     </section>
 
     <section class="tabpanel" id="flip" role="tabpanel" aria-labelledby="tab-flip" tabindex="0">
       <div class="toolbar">
         <div class="searchbox"><span class="search-ico" aria-hidden="true">⌕</span>
-          <input id="flipSearch" type="search" data-i18n-ph="ph_filter_item" placeholder="filter item…" aria-label="Filter items" oninput="onFlipInput()">
+          <input id="flipSearch" type="search" data-i18n-ph="ph_filter_item" placeholder="filter item…" aria-label="Filter items" data-i18n-aria="aria_filter_items" oninput="onFlipInput()">
           <button type="button" class="clear-btn" onclick="clearSearch('flipSearch','renderFlip')" aria-label="Clear">✕</button>
         </div>
         <label class="check"><input type="checkbox" id="flipVerified" checked onchange="renderFlip()"> <span data-i18n="only_verified">verified prices only</span></label>
@@ -190,7 +203,7 @@
         <span class="count" id="flipCount" aria-live="polite"></span>
       </div>
       <div class="hint" data-i18n="flip_hint">Buy the cheapest ask and resell at the going price; taxes and listing fee included.</div>
-      <div class="tablewrap" tabindex="0" role="region" aria-label="Flip table"><table id="flipTable" class="data-table"></table></div>
+      <div class="tablewrap" tabindex="0" role="region" aria-label="Flip table" data-i18n-aria="aria_table_flip"><table id="flipTable" class="data-table"></table></div>
       <div class="loadmore"><button type="button" class="btn ghost" id="flipMore" onclick="showMore('flip')" hidden></button></div>
     </section>
 
@@ -204,6 +217,6 @@
   </main>
 </div>
 
-<script type="module" src="app.js?v=21"></script>
+<script type="module" src="app.js?v=22"></script>
 </body>
 </html>
