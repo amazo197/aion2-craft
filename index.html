@@ -5,128 +5,205 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Aion 2 Craft Market</title>
 <link rel="icon" href="data:,">
-<link rel="stylesheet" href="styles.css?v=4">
+<link rel="stylesheet" href="styles.css?v=6">
 </head>
 <body>
-<div class="wrap">
-  <header>
-    <h1>Aion 2 Craft Market</h1>
-    <span class="meta" id="meta" data-i18n="loading">loading…</span>
-    <span class="meta"><span data-i18n="src_recipes">recipes:</span> <a href="https://gamers4.life/aion-2/database/en/crafting-calculator/" target="_blank" rel="noopener">gamers4.life</a> · <span data-i18n="src_prices">prices:</span> <a href="https://aion2.exchange/" target="_blank" rel="noopener">aion2.exchange</a></span>
-    <label class="langsel"><select id="lang" onchange="setLanguage(this.value)"><option value="en">EN</option><option value="ru">RU</option></select></label>
-  </header>
-
-  <div class="panel sticky">
-    <div class="tog" onclick="toggleInputs()"><b data-i18n="inputs">Inputs</b><span id="togArrow">▸</span></div>
-    <div id="inputs" style="display:none">
-      <div class="ig">
-        <div class="subh" data-i18n="h_market">Market</div>
-        <label><span data-i18n="l_server">Server</span> <select id="server"></select></label>
-        <label><span data-i18n="l_profession">Profession</span> <select id="profession">
-          <option value="all" data-i18n="prof_all">All</option><option value="jewelcrafting" data-i18n="prof_jewel">Handicrafting (jewelcrafting)</option>
-          <option value="blacksmithing" data-i18n="prof_black">Blacksmithing</option><option value="tailoring" data-i18n="prof_tailor">Armorsmithing (tailoring)</option>
-          <option value="alchemy" data-i18n="prof_alc">Alchemy</option><option value="cooking" data-i18n="prof_cook">Cooking</option></select></label>
-        <label><span data-i18n="l_maxmastery">Max mastery (beginner 1-50, professional 51+)</span> <input id="maxMastery" type="number" min="1" max="120"></label>
-        <label><span data-i18n="l_pricebasis">Price basis</span> <select id="priceBasis">
-          <option value="ask" data-i18n="pb_ask">Cheapest ask</option><option value="low" data-i18n="pb_low">Cleared band low (conservative)</option><option value="high" data-i18n="pb_high">Cleared band high</option></select></label>
-        <label><span data-i18n="l_greenmult">Splendent price × %</span> <input id="greenMult" type="number" min="1" max="200"></label>
-        <label><span data-i18n="l_tax">Sales tax %</span> <input id="tax" type="number" min="0" max="50"></label>
-        <label><span data-i18n="l_listfee">Listing fee % (paid per listing, sold or not)</span> <input id="listFee" type="number" min="0" max="50"></label>
-        <label><span data-i18n="l_npc">NPC consumable price (catalyst, abrasive…)</span> <input id="npcPrice" type="number" min="0"></label>
-        <label><span data-i18n="l_rs">Refining Stone override (0 = market)</span> <input id="rsOverride" type="number" min="0"></label>
-        <label><span data-i18n="l_askcap">Ignore ask if > % above highest trade</span> <input id="askCap" type="number" min="0" max="500"></label>
-        <label><span data-i18n="l_minlistings">Trust asks with at least N listings</span> <input id="minListings" type="number" min="1" max="20"></label>
-        <label><span data-i18n="l_xsrcmult">Cut ask above × cross-server median</span> <input id="xserverMult" type="number" min="0" max="100"></label>
-        <div class="subh" data-i18n="h_you">You</div>
-        <label><span data-i18n="l_minpercraft">Minutes per craft</span> <input id="minPerCraft" type="number" min="0.05" step="0.05"></label>
-        <label><span data-i18n="l_budget">Budget (kina)</span> <input id="budget" type="number" min="0" step="100000"></label>
-        <label><span data-i18n="l_hours">Hours to spend (0 = no limit)</span> <input id="hours" type="number" min="0" step="1"></label>
-        <label><span data-i18n="l_horizon">Plan horizon days (0 = ignore market absorption)</span> <input id="horizon" type="number" min="0" step="1"></label>
-        <div class="subh" data-i18n="h_success">Success rate % by recipe mastery</div>
-        <label><span data-i18n="l_succ_low">≤ 50</span> <input id="succLow" type="number" min="1" max="100"></label>
-        <label><span data-i18n="l_succ_mid">51–55</span> <input id="succMid" type="number" min="1" max="100"></label>
-        <label><span data-i18n="l_succ_high">56–70</span> <input id="succHigh" type="number" min="1" max="100"></label>
-        <label><span data-i18n="l_succ_top">71+</span> <input id="succTop" type="number" min="1" max="100"></label>
-        <label><span data-i18n="l_comboinfo">Combo (Splendent) chance</span> <input id="comboInfo" disabled data-i18n-value="from_recipe" value="from recipe (25% typical)"></label>
-      </div>
-      <div class="row">
-        <button class="primary" onclick="recalc()" data-i18n="btn_recalc">Recalculate</button>
-        <button onclick="resetDefaults()" data-i18n="btn_reset">Reset defaults</button>
-        <span class="small" id="status"></span>
-      </div>
-    </div>
+<header class="topbar">
+  <a class="brand" href="#opps">Aion 2 <span>Market</span></a>
+  <div class="top-ctx">
+    <label class="ctx-field">
+      <span class="ctx-label" data-i18n="l_server">Server</span>
+      <select id="server"></select>
+    </label>
+    <button type="button" class="chip" id="freshness" aria-live="polite">–</button>
   </div>
-
-  <div class="tabs">
-    <button class="mbtn on" id="tab-opps" onclick="setTab('opps')" data-i18n="tab_opps">Opportunities</button>
-    <button class="mbtn" id="tab-recipe" onclick="setTab('recipe')" data-i18n="tab_recipe">Recipe</button>
-    <button class="mbtn" id="tab-market" onclick="setTab('market')" data-i18n="tab_market">Market</button>
-    <button class="mbtn" id="tab-plan" onclick="setTab('plan')" data-i18n="tab_plan">Plan</button>
-    <button class="mbtn" id="tab-flip" onclick="setTab('flip')" data-i18n="tab_flip">Flip</button>
+  <div class="top-actions">
+    <button type="button" class="icon-btn" id="paramsBtn" onclick="openParams()" aria-label="Parameters" title="Parameters">⚙</button>
+    <label class="lang-field">
+      <span class="ctx-label" data-i18n="l_lang">Language</span>
+      <select id="lang" onchange="setLanguage(this.value)"><option value="en">EN</option><option value="ru">RU</option></select>
+    </label>
   </div>
+</header>
 
-  <section class="tab on" id="opps">
-    <div class="row">
-      <input class="search" id="oppSearch" data-i18n-ph="ph_filter_recipes" placeholder="filter recipe name…" oninput="renderOpps()">
-      <label class="small"><input type="checkbox" id="onlyPositive" onchange="renderOpps()"> <span data-i18n="only_positive">profitable only</span></label>
-      <label class="small"><input type="checkbox" id="onlyListed" checked onchange="renderOpps()"> <span data-i18n="only_listed">output has listings</span></label>
-      <label class="small"><input type="checkbox" id="onlyAfford" checked onchange="renderOpps()"> <span data-i18n="only_afford">within budget</span></label>
-      <label class="small"><input type="checkbox" id="onlyVerified" checked onchange="renderOpps()"> <span data-i18n="only_verified">verified prices only</span></label>
-      <label class="small"><span data-i18n="min_units">min units cleared in window</span> <input id="minGone" type="number" value="1" min="0" style="width:60px" oninput="renderOpps()"></label>
-      <span class="small" id="oppCount"></span>
+<div class="shell">
+  <aside class="sidebar" id="sidebar" aria-label="Parameters">
+    <div class="sidebar-head">
+      <h2 data-i18n="inputs">Parameters</h2>
+      <button type="button" class="icon-btn sidebar-close" onclick="closeParams()" aria-label="Close">✕</button>
     </div>
-    <div class="scroll panel" style="padding:0;margin-top:8px"><table id="oppTable"></table></div>
-  </section>
-
-  <section class="tab" id="recipe">
-    <div class="row"><input class="search" id="recipeSearch" data-i18n-ph="ph_search_item" placeholder="search item to craft…" oninput="recipeSuggest()"><div id="recipeSuggestions" class="small"></div></div>
-    <div class="two" style="margin-top:10px">
-      <div class="panel" id="recipeDetail" data-i18n="pick_recipe">Pick a recipe from Opportunities or search above.</div>
-      <div class="panel" id="recipeMarket"></div>
+    <div class="params-scroll">
+      <div class="pgroup">
+        <h3 data-i18n="h_market">Market</h3>
+        <label class="field"><span data-i18n="l_profession">Profession</span>
+          <select id="profession">
+            <option value="all" data-i18n="prof_all">All</option><option value="jewelcrafting" data-i18n="prof_jewel">Handicrafting (jewelcrafting)</option>
+            <option value="blacksmithing" data-i18n="prof_black">Blacksmithing</option><option value="tailoring" data-i18n="prof_tailor">Armorsmithing (tailoring)</option>
+            <option value="alchemy" data-i18n="prof_alc">Alchemy</option><option value="cooking" data-i18n="prof_cook">Cooking</option>
+          </select></label>
+        <label class="field"><span data-i18n="l_maxmastery">Max mastery</span> <input id="maxMastery" type="number" min="1" max="120"></label>
+        <label class="field"><span data-i18n="l_pricebasis">Price basis</span>
+          <select id="priceBasis">
+            <option value="ask" data-i18n="pb_ask">Cheapest ask</option><option value="low" data-i18n="pb_low">Cleared band low (conservative)</option><option value="high" data-i18n="pb_high">Cleared band high</option>
+          </select></label>
+        <label class="field"><span data-i18n="l_greenmult">Splendent price × %</span> <input id="greenMult" type="number" min="1" max="200"></label>
+        <label class="field"><span data-i18n="l_tax">Sales tax %</span> <input id="tax" type="number" min="0" max="50"></label>
+        <label class="field"><span data-i18n="l_listfee">Listing fee %</span> <input id="listFee" type="number" min="0" max="50"></label>
+        <label class="field"><span data-i18n="l_npc">NPC consumable price</span> <input id="npcPrice" type="number" min="0"></label>
+        <label class="field"><span data-i18n="l_rs">Refining Stone override</span> <input id="rsOverride" type="number" min="0"></label>
+        <label class="field"><span data-i18n="l_askcap">Ignore ask above trade by %</span> <input id="askCap" type="number" min="0" max="500"></label>
+        <label class="field"><span data-i18n="l_minlistings">Trust asks with ≥ N listings</span> <input id="minListings" type="number" min="1" max="20"></label>
+        <label class="field"><span data-i18n="l_xsrcmult">Cut ask above × cross-server median</span> <input id="xserverMult" type="number" min="0" max="100"></label>
+      </div>
+      <div class="pgroup">
+        <h3 data-i18n="h_you">You</h3>
+        <label class="field"><span data-i18n="l_minpercraft">Minutes per craft</span> <input id="minPerCraft" type="number" min="0.05" step="0.05"></label>
+        <label class="field"><span data-i18n="l_budget">Budget (kina)</span> <input id="budget" type="number" min="0" step="100000"></label>
+        <label class="field"><span data-i18n="l_hours">Hours to spend</span> <input id="hours" type="number" min="0" step="1"></label>
+        <label class="field"><span data-i18n="l_horizon">Plan horizon days</span> <input id="horizon" type="number" min="0" step="1"></label>
+      </div>
+      <div class="pgroup">
+        <h3 data-i18n="h_success">Success % by mastery</h3>
+        <div class="mini-grid">
+          <label class="field"><span data-i18n="l_succ_low">≤ 50</span> <input id="succLow" type="number" min="1" max="100"></label>
+          <label class="field"><span data-i18n="l_succ_mid">51–55</span> <input id="succMid" type="number" min="1" max="100"></label>
+          <label class="field"><span data-i18n="l_succ_high">56–70</span> <input id="succHigh" type="number" min="1" max="100"></label>
+          <label class="field"><span data-i18n="l_succ_top">71+</span> <input id="succTop" type="number" min="1" max="100"></label>
+        </div>
+        <label class="field"><span data-i18n="l_comboinfo">Combo (Splendent) chance</span> <input id="comboInfo" disabled data-i18n-value="from_recipe" value="from recipe (25% typical)"></label>
+      </div>
     </div>
-  </section>
-
-  <section class="tab" id="market">
-    <div class="row">
-      <input class="search" id="mktSearch" data-i18n-ph="ph_filter_item" placeholder="filter item…" oninput="renderMarket()">
-      <select id="mktSection" onchange="renderMarket()"><option value="" data-i18n="all_sections">all sections</option></select>
-      <span class="small" id="mktCount"></span>
+    <div class="sidebar-foot">
+      <button type="button" class="btn primary" onclick="recalc(true)" data-i18n="btn_recalc">Recalculate</button>
+      <button type="button" class="btn ghost" onclick="resetDefaults()" data-i18n="btn_reset">Reset defaults</button>
+      <div class="status-line" id="status" role="status" aria-live="polite"></div>
     </div>
-    <div class="scroll panel" style="padding:0;margin-top:8px"><table id="mktTable"></table></div>
-  </section>
+  </aside>
+  <div class="scrim" id="scrim" onclick="closeParams()" hidden></div>
 
-  <section class="tab" id="plan">
-    <div class="row"><span class="small" data-i18n="plan_hint">Craft this mix for your budget and hours to maximise kina.</span><span class="small" id="planSummary"></span></div>
-    <div class="scroll panel" style="padding:0;margin-top:8px"><table id="planTable"></table></div>
-  </section>
+  <main class="main" id="main">
+    <section class="kpis" aria-label="Summary">
+      <article class="kpi"><span class="kpi-label" data-i18n="kpi_opps">Opportunities</span><strong id="kpiOpps">–</strong><small id="kpiOppsSub"></small></article>
+      <article class="kpi"><span class="kpi-label" data-i18n="kpi_best_day">Best kina/day</span><strong id="kpiBestDay">–</strong><small id="kpiBestDaySub"></small></article>
+      <article class="kpi"><span class="kpi-label" data-i18n="kpi_best_roi">Best ROI</span><strong id="kpiBestRoi">–</strong><small id="kpiBestRoiSub"></small></article>
+      <article class="kpi"><span class="kpi-label" data-i18n="kpi_data">Data</span><strong id="kpiFresh">–</strong><small id="kpiFreshSub"></small></article>
+    </section>
 
-  <section class="tab" id="flip">
-    <div class="row">
-      <input class="search" id="flipSearch" data-i18n-ph="ph_filter_item" placeholder="filter item…" oninput="renderFlip()">
-      <label class="small"><input type="checkbox" id="flipVerified" checked onchange="renderFlip()"> <span data-i18n="only_verified">verified prices only</span></label>
-      <label class="small"><input type="checkbox" id="flipProfit" checked onchange="renderFlip()"> <span data-i18n="only_positive">profitable only</span></label>
-      <span class="small" id="flipCount"></span>
+    <div class="stale-banner" id="staleBanner" role="status" hidden>
+      <span id="staleText"></span>
+      <button type="button" class="btn small" onclick="location.reload()" data-i18n="btn_refresh">Refresh</button>
     </div>
-    <div class="small" data-i18n="flip_hint" style="margin-top:6px"></div>
-    <div class="scroll panel" style="padding:0;margin-top:8px"><table id="flipTable"></table></div>
-  </section>
 
-  <details class="method">
-    <summary data-i18n="methodology">Methodology</summary>
-    <p data-i18n="method_p1">Recipes and icons come from the gamers4.life crafting graph. Prices are the cheapest current listing on aion2.exchange for the chosen server, refreshed hourly by a GitHub Action. 28-day sales statistics exist only where the game publishes them (materials, consumables, skins), so for gear and accessories the "cleared band" is inferred from listings that disappeared between 10-minute snapshots: the low end is the cheapest ask that vanished, the high end the next ask left standing. Disappearances include cancels and relists.</p>
-    <div class="formula" data-i18n="method_formula">cost   = recipe fee + Σ qty × cheapest(buy, craft, craft-via-combo) for each input
-EV     = success × [ (1 − combo) × plain price × outq + combo × Splendent price ] × (1 − tax − listing fee)
-profit = EV − cost        profit/min = profit ÷ (own-craft minutes of inputs + minutes per craft)
-Splendent via own crafting = (attempt cost − success × (1−combo) × plain value × (1−tax−fee)) ÷ (success × combo)
-break-even Splendent     = (cost ÷ (success × (1−tax−fee)) − (1−combo) × plain) ÷ combo
-days to sell    = (listings + 1) ÷ (28-day units sold ÷ 28)   [Little's law]
-kina/day        = profit ÷ days to sell        ROI/day = (profit ÷ cost) ÷ days
-break-even s*   = cost ÷ ([(1−combo) × plain × outq + combo × Splendent] × (1−tax−fee))
-risk            = σ, chance of loss and CVaR10 over the {fail, plain, Splendent} outcomes of one craft</div>
-    <p data-i18n-html="method_p2"><b>Ask cap.</b> The cheapest ask is only used as a sale price when it sits within the cap (default 20%) of the highest known trade. The highest known trade is the 28-day maximum sale where the game publishes one, otherwise the highest ask that has ever vanished from the book, carried forward across bakes. Above the cap the item is valued at that trade instead, and the row is marked <span class="pill bad">capped</span>.</p>
-    <p data-i18n="method_p3">Success rate is yours to set per mastery tier; Korean testing found ~95% on beginner recipes and ~65% on Dragon-King-tier recipes at matching mastery. A failed craft loses all materials. Bound NPC consumables (abrasive, catalyst, hardener, bottles) are costed at the NPC price input. Inputs bought from the market are priced at the higher of the cheapest ask and the cheapest ask that vanished in the window, so a lone low listing does not set the cost.</p>
-  </details>
+    <nav class="tabs" role="tablist" aria-label="Sections">
+      <button role="tab" id="tab-opps" data-tab="opps" aria-controls="opps" aria-selected="true" data-i18n="tab_opps">Opportunities</button>
+      <button role="tab" id="tab-recipe" data-tab="recipe" aria-controls="recipe" aria-selected="false" data-i18n="tab_recipe">Recipe</button>
+      <button role="tab" id="tab-market" data-tab="market" aria-controls="market" aria-selected="false" data-i18n="tab_market">Market</button>
+      <button role="tab" id="tab-plan" data-tab="plan" aria-controls="plan" aria-selected="false" data-i18n="tab_plan">Plan</button>
+      <button role="tab" id="tab-flip" data-tab="flip" aria-controls="flip" aria-selected="false" data-i18n="tab_flip">Flip</button>
+    </nav>
+
+    <section class="tabpanel on" id="opps" role="tabpanel" aria-labelledby="tab-opps" tabindex="0">
+      <div class="toolbar">
+        <div class="searchbox">
+          <span class="search-ico" aria-hidden="true">⌕</span>
+          <input id="oppSearch" type="search" data-i18n-ph="ph_filter_recipes" placeholder="filter recipe name…" aria-label="Filter recipes" oninput="onOppInput()">
+          <button type="button" class="clear-btn" onclick="clearSearch('oppSearch','renderOpps')" aria-label="Clear">✕</button>
+        </div>
+        <div class="filter-wrap">
+          <button type="button" class="btn filter-btn" id="oppFilterBtn" onclick="toggleFilterPop()" aria-expanded="false">
+            <span data-i18n="filters">Filters</span> <span class="badge neutral" id="oppFilterCount">0</span>
+          </button>
+          <div class="popover" id="oppFilterPop" hidden>
+            <label class="check"><input type="checkbox" id="onlyPositive" onchange="onOppFilterChange()"> <span data-i18n="only_positive">profitable only</span></label>
+            <label class="check"><input type="checkbox" id="onlyListed" checked onchange="onOppFilterChange()"> <span data-i18n="only_listed">output has listings</span></label>
+            <label class="check"><input type="checkbox" id="onlyAfford" checked onchange="onOppFilterChange()"> <span data-i18n="only_afford">within budget</span></label>
+            <label class="check"><input type="checkbox" id="onlyVerified" checked onchange="onOppFilterChange()"> <span data-i18n="only_verified">verified prices only</span></label>
+            <label class="check inline"><span data-i18n="min_units_short">min units cleared</span> <input id="minGone" type="number" value="1" min="0" oninput="onOppFilterChange()"></label>
+            <div class="popover-foot"><button type="button" class="btn ghost small" onclick="resetOppFilters()" data-i18n="reset_filters">Reset filters</button></div>
+          </div>
+        </div>
+        <div class="toolbar-spacer"></div>
+        <button type="button" class="btn ghost" id="densityBtn" onclick="toggleDensity()" data-i18n="density">Density</button>
+        <div class="col-wrap">
+          <button type="button" class="btn ghost" id="columnsBtn" onclick="toggleColumnsPop()" aria-expanded="false"><span data-i18n="columns">Columns</span> <span aria-hidden="true">▾</span></button>
+          <div class="popover columns" id="columnsPop" hidden></div>
+        </div>
+        <span class="count" id="oppCount" aria-live="polite"></span>
+      </div>
+      <div class="chips" id="oppChips"></div>
+      <div class="tablewrap" tabindex="0" role="region" aria-label="Opportunities table">
+        <table id="oppTable" class="data-table"></table>
+      </div>
+      <div class="loadmore"><button type="button" class="btn ghost" id="oppMore" onclick="showMore('opps')" hidden></button></div>
+    </section>
+
+    <section class="tabpanel" id="recipe" role="tabpanel" aria-labelledby="tab-recipe" tabindex="0">
+      <div class="toolbar">
+        <div class="searchbox"><span class="search-ico" aria-hidden="true">⌕</span>
+          <input id="recipeSearch" type="search" data-i18n-ph="ph_search_item" placeholder="search item to craft…" aria-label="Search item" oninput="recipeSuggest()">
+          <button type="button" class="clear-btn" onclick="clearSearch('recipeSearch','recipeSuggest')" aria-label="Clear">✕</button>
+        </div>
+        <div id="recipeSuggestions" class="suggestions"></div>
+      </div>
+      <div class="two">
+        <div class="panel" id="recipeDetail" data-i18n="pick_recipe">Pick a recipe from Opportunities or search above.</div>
+        <div class="panel" id="recipeMarket"></div>
+      </div>
+    </section>
+
+    <section class="tabpanel" id="market" role="tabpanel" aria-labelledby="tab-market" tabindex="0">
+      <div class="toolbar">
+        <div class="searchbox"><span class="search-ico" aria-hidden="true">⌕</span>
+          <input id="mktSearch" type="search" data-i18n-ph="ph_filter_item" placeholder="filter item…" aria-label="Filter items" oninput="onMarketInput()">
+          <button type="button" class="clear-btn" onclick="clearSearch('mktSearch','renderMarket')" aria-label="Clear">✕</button>
+        </div>
+        <select id="mktSection" onchange="renderMarket()" data-i18n-aria="m_section" aria-label="Section"><option value="" data-i18n="all_sections">all sections</option></select>
+        <div class="toolbar-spacer"></div>
+        <span class="count" id="mktCount" aria-live="polite"></span>
+      </div>
+      <div class="tablewrap" tabindex="0" role="region" aria-label="Market table">
+        <table id="mktTable" class="data-table"></table>
+      </div>
+      <div class="loadmore"><button type="button" class="btn ghost" id="mktMore" onclick="showMore('market')" hidden></button></div>
+    </section>
+
+    <section class="tabpanel" id="plan" role="tabpanel" aria-labelledby="tab-plan" tabindex="0">
+      <div class="plan-kpis">
+        <div class="mini-kpi"><span data-i18n="plan_budget">Budget</span><strong id="planBudget">–</strong></div>
+        <div class="mini-kpi"><span data-i18n="plan_spent">Spent</span><strong id="planSpent">–</strong></div>
+        <div class="mini-kpi"><span data-i18n="plan_profit">Expected profit</span><strong id="planProfit">–</strong></div>
+        <div class="mini-kpi"><span data-i18n="plan_hours">Time</span><strong id="planTime">–</strong></div>
+      </div>
+      <div class="toolbar"><span class="hint" data-i18n="plan_hint">Craft this mix for your budget and hours; only verified recipes with listings.</span><span class="toolbar-spacer"></span><span class="count" id="planSummary" aria-live="polite"></span></div>
+      <div class="tablewrap" tabindex="0" role="region" aria-label="Plan table"><table id="planTable" class="data-table"></table></div>
+    </section>
+
+    <section class="tabpanel" id="flip" role="tabpanel" aria-labelledby="tab-flip" tabindex="0">
+      <div class="toolbar">
+        <div class="searchbox"><span class="search-ico" aria-hidden="true">⌕</span>
+          <input id="flipSearch" type="search" data-i18n-ph="ph_filter_item" placeholder="filter item…" aria-label="Filter items" oninput="onFlipInput()">
+          <button type="button" class="clear-btn" onclick="clearSearch('flipSearch','renderFlip')" aria-label="Clear">✕</button>
+        </div>
+        <label class="check"><input type="checkbox" id="flipVerified" checked onchange="renderFlip()"> <span data-i18n="only_verified">verified prices only</span></label>
+        <label class="check"><input type="checkbox" id="flipProfit" checked onchange="renderFlip()"> <span data-i18n="only_positive">profitable only</span></label>
+        <div class="toolbar-spacer"></div>
+        <span class="count" id="flipCount" aria-live="polite"></span>
+      </div>
+      <div class="hint" data-i18n="flip_hint">Buy the cheapest ask and resell at the going price; taxes and listing fee included.</div>
+      <div class="tablewrap" tabindex="0" role="region" aria-label="Flip table"><table id="flipTable" class="data-table"></table></div>
+      <div class="loadmore"><button type="button" class="btn ghost" id="flipMore" onclick="showMore('flip')" hidden></button></div>
+    </section>
+
+    <details class="method">
+      <summary data-i18n="methodology">Methodology</summary>
+      <p data-i18n="method_p1">Recipes and icons come from the gamers4.life crafting graph. Prices are the cheapest current listing on aion2.exchange for the chosen server, refreshed hourly by a GitHub Action. 28-day sales statistics exist only where the game publishes them (materials, consumables, skins), so for gear and accessories the "cleared band" is inferred from listings that disappeared between 10-minute snapshots: the low end is the cheapest ask that vanished, the high end the next ask left standing. Disappearances include cancels and relists.</p>
+      <div class="formula" data-i18n="method_formula">cost</div>
+      <p data-i18n-html="method_p2"><b>Ask cap.</b> The cheapest ask is only used as a sale price when it sits within the cap (default 20%) of the highest known trade. The highest known trade is the 28-day maximum sale where the game publishes one, otherwise the highest ask that has ever vanished from the book, carried forward across bakes. Above the cap the item is valued at that trade instead, and the row is marked <span class="badge danger">capped</span>.</p>
+      <p data-i18n="method_p3">Success rate is yours to set per mastery tier; Korean testing found ~95% on beginner recipes and ~65% on Dragon-King-tier recipes at matching mastery. A failed craft loses all materials. Bound NPC consumables (abrasive, catalyst, hardener, bottles) are costed at the NPC price input. Inputs bought from the market are priced at the higher of the cheapest ask and the cheapest ask that vanished in the window, so a lone low listing does not set the cost.</p>
+    </details>
+  </main>
 </div>
-<script type="module" src="app.js?v=18"></script>
+
+<script type="module" src="app.js?v=20"></script>
 </body>
 </html>
