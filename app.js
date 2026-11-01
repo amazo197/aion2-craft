@@ -380,7 +380,7 @@ function renderKpis() {
   const dayRow = day == null ? null : pos.find(r => r.profitDay === day);
   $('kpiBestDay').textContent = day == null ? '–' : fmt(day);
   $('kpiBestDaySub').textContent = dayRow
-    ? dayRow.name + (dayRow.days != null ? ' · ' + dayRow.days.toFixed(1) + ' ' + t('days_unit') : '')
+    ? dayRow.name + (dayRow.days != null ? ' · ' + nf(1).format(dayRow.days) + ' ' + t('days_unit') : '')
     : t('no_data');
   const roi = best(pos.map(r => r.roi));
   const roiRow = roi == null ? null : pos.find(r => r.roi === roi);
@@ -526,11 +526,11 @@ window.renderOpps = () => {
       const mobile = ['ml', 'cost', 'plainL'].includes(c.k) || c.opt ? ' hide-mobile' : '';
       if (c.k === 'name') {
         const sub = [esc(r.prof), r.combo ? '→ ' + nm(r.combo) : ''].filter(Boolean).join(' · ');
-        return `<td data-label="${esc(label)}"><div class="name-cell">${icon(r.out)}<div><div class="nm" title="${esc(r.name)}">${esc(r.name)}</div><div class="sub">${sub}</div></div></div></td>`;
+        return `<td data-label="${esc(label)}"><div class="name-cell">${icon(r.out)}<div><div class="nm" lang="en" title="${esc(r.name)}">${esc(r.name)}</div><div class="sub">${sub}</div></div></div></td>`;
       }
       if (c.k === 'status') return `<td data-label="${esc(label)}" class="badge-cell">${statusBadges(r)}</td>`;
       const v = r[c.k];
-      if (c.k === 'days') return `<td data-label="${esc(label)}" class="num num-cell${mobile}">${v == null ? '–' : v.toFixed(1)}</td>`;
+      if (c.k === 'days') return `<td data-label="${esc(label)}" class="num num-cell${mobile}">${v == null ? '–' : nf(1).format(v)}</td>`;
       if (c.k === 'ml' || c.k === 'crafts' || c.k === 'plainL') return `<td data-label="${esc(label)}" class="num num-cell${mobile}">${v ?? '–'}</td>`;
       if (c.k === 'roi' || c.k === 'beSuccess') return `<td data-label="${esc(label)}" class="num num-cell ${cls(v)}${mobile}">${spct(v)}</td>`;
       if (c.k === 'chg') return `<td data-label="${esc(label)}" class="num num-cell ${cls(v)}${mobile}">${spctChg(v)}</td>`;
@@ -573,7 +573,7 @@ window.pick = rid => {
 };
 function treeHtml(tr) {
   if (!tr) return `<span class="bad">${esc(t('cannot_price'))}</span>`;
-  return '<ul>' + tr.lines.map(l => `<li><span class="name-cell">${icon(l.key)}${l.qty} × ${nm(l.key)}</span> <span class="accent">@ ${fmt(l.unit)}</span><span class="how">${esc(t(HOW[l.how] || l.how))}${l.mins ? esc(t('mins_suffix', { m: l.mins.toFixed(1) })) : ''}</span>${l.sub ? treeHtml(l.sub) : ''}</li>`).join('') + '</ul>';
+  return '<ul>' + tr.lines.map(l => `<li><span class="name-cell">${icon(l.key)}${l.qty} × <span lang="en">${nm(l.key)}</span></span> <span class="accent">@ ${fmt(l.unit)}</span><span class="how">${esc(t(HOW[l.how] || l.how))}${l.mins ? esc(t('mins_suffix', { m: nf(1).format(l.mins) })) : ''}</span>${l.sub ? treeHtml(l.sub) : ''}</li>`).join('') + '</ul>';
 }
 function mktRow(k) {
   const v = PRICES[k];
@@ -604,13 +604,13 @@ function renderRecipe(rid) {
       <div>${esc(t('cost_per_craft'))}</div><div>${fmt(r.cost)} <span class="dim">${esc(t('fee', { v: fmt(rec.gold || 0) }))}</span></div>
       <div>${esc(t('expected_value'))}</div><div>${fmt(r.ev)} <span class="dim">${esc(t('ev_at', { s: pct(s), tax: pct(P.tax), fee: pct(P.listFee) }))}</span></div>
       <div>${esc(t('profit_per_craft'))}</div><div class="${cls(r.profit)}">${sfmt(r.profit)} <span class="dim">(${spct(r.roi)})</span></div>
-      <div>${esc(t('profit_per_min'))}</div><div class="${cls(r.ppm)}">${sfmt(r.ppm)} <span class="dim">${esc(t('mins_incl', { m: r.mins.toFixed(1) }))}</span></div>
-      <div>${esc(t('days_to_sell'))}</div><div>${r.days == null ? '–' : r.days.toFixed(1) + ' ' + esc(t('days_unit'))}</div>
+      <div>${esc(t('profit_per_min'))}</div><div class="${cls(r.ppm)}">${sfmt(r.ppm)} <span class="dim">${esc(t('mins_incl', { m: nf(1).format(r.mins) }))}</span></div>
+      <div>${esc(t('days_to_sell'))}</div><div>${r.days == null ? '–' : nf(1).format(r.days) + ' ' + esc(t('days_unit'))}</div>
       <div>${esc(t('profit_per_day'))}</div><div class="${cls(r.profitDay)}">${sfmt(r.profitDay)}</div>
       <div>${esc(t('roi_per_day'))}</div><div class="${cls(r.roiDay)}">${r.roiDay == null ? '–' : spct(r.roiDay)}</div>
       ${combo ? `<div>${esc(t('breakeven_green'))}</div><div>${fmt(r.breakEvenGreen)}</div>` : ''}
       <div>${esc(t('breakeven_success'))}</div><div>${r.beSuccess == null ? '–' : pct(r.beSuccess)} <span class="dim">(${esc(t('your_success', { s: pct(s) }))})</span></div>
-      <div>${esc(t('risk_sigma'))}</div><div>${fmt(r.sigma)} <span class="dim">${esc(t('sharpe_of', { v: r.sharpe == null ? '–' : r.sharpe.toFixed(2) }))}</span></div>
+      <div>${esc(t('risk_sigma'))}</div><div>${fmt(r.sigma)} <span class="dim">${esc(t('sharpe_of', { v: r.sharpe == null ? '–' : nf(2).format(r.sharpe) }))}</span></div>
       <div>${esc(t('prob_loss'))}</div><div>${r.probLoss == null ? '–' : pct(r.probLoss)}</div>
       <div>${esc(t('cvar'))}</div><div class="${cls(r.cvar10)}">${fmt(r.cvar10)}</div>
       <div>${esc(t('crafts_budget'))}</div><div>${r.crafts} <span class="dim">${esc(t('expected_val', { v: fmt(r.crafts * r.profit) }))}</span></div>
@@ -642,8 +642,8 @@ window.renderPlan = () => {
   const body = p.mix.map(m => {
     const row = RESULT.rows.find(x => x.rid === m.rid);
     return `<tr class="click" tabindex="0" onclick="pick('${m.rid}')" onkeydown="rowKey(event,'${m.rid}')">
-      <td data-label="${esc(t('c_recipe'))}"><div class="name-cell">${icon(m.out)}<div><div class="nm">${esc(m.name)}</div><div class="sub">${esc(m.prof)}</div></div></div></td>
-      <td data-label="${esc(t('plan_crafts'))}" class="num num-cell">${m.x.toFixed(1)}</td>
+      <td data-label="${esc(t('c_recipe'))}"><div class="name-cell">${icon(m.out)}<div><div class="nm" lang="en">${esc(m.name)}</div><div class="sub">${esc(m.prof)}</div></div></div></td>
+      <td data-label="${esc(t('plan_crafts'))}" class="num num-cell">${nf(1).format(m.x)}</td>
       <td data-label="${esc(t('c_cost'))}" class="num num-cell">${fmt(m.x * m.cost)}</td>
       <td data-label="${esc(t('c_mins'))}" class="num num-cell">${fmt(m.x * m.mins)}</td>
       <td data-label="${esc(t('c_profit_total'))}" class="num num-cell good">${fmt(m.x * m.profit)}</td></tr>`;
@@ -672,12 +672,12 @@ window.renderFlip = () => {
   const body = shown.map(r => {
     const c7 = trendChange(TREND, r.k, 7);
     return `<tr>
-      <td data-label="${esc(t('m_item'))}"><div class="name-cell">${icon(r.k)}<div><div class="nm" title="${esc(r.name)}">${esc(r.name)}</div><div class="sub">${r.unverified ? `<span class="badge warn" title="${esc(t('unverified_title'))}">${esc(t('unverified'))}</span>` : ''}</div></div></div></td>
+      <td data-label="${esc(t('m_item'))}"><div class="name-cell">${icon(r.k)}<div><div class="nm" lang="en" title="${esc(r.name)}">${esc(r.name)}</div><div class="sub">${r.unverified ? `<span class="badge warn" title="${esc(t('unverified_title'))}">${esc(t('unverified'))}</span>` : ''}</div></div></div></td>
       <td data-label="${esc(t('f_buy'))}" class="num num-cell">${fmt(r.buy)}</td>
       <td data-label="${esc(t('f_sell'))}" class="num num-cell">${fmt(r.sell)} <span class="dim">${esc(t('src_' + r.src))}</span></td>
       <td data-label="${esc(t('f_spread'))}" class="num num-cell ${cls(r.spread)}">${spct(r.spread)}</td>
       <td data-label="${esc(t('f_roiDay'))}" class="num num-cell ${cls(r.roiDay)}">${r.roiDay == null ? '–' : spct(r.roiDay)}</td>
-      <td data-label="${esc(t('c_days'))}" class="num num-cell hide-mobile">${r.days == null ? '–' : r.days.toFixed(1)}</td>
+      <td data-label="${esc(t('c_days'))}" class="num num-cell hide-mobile">${r.days == null ? '–' : nf(1).format(r.days)}</td>
       <td data-label="${esc(t('c_plainL'))}" class="num num-cell hide-mobile">${r.n}</td>
       <td data-label="${esc(t('m_chg'))}" class="num num-cell ${cls(r.chg)} hide-mobile">${spctChg(r.chg)}</td>
       <td data-label="${esc(t('trend7'))}" class="num num-cell ${cls(c7)} hide-mobile">${c7 == null ? '–' : spct(c7)}</td></tr>`;
@@ -713,7 +713,7 @@ window.renderMarket = () => {
   const body = shown.map(r => {
     const { k, v, h, c7 } = r;
     return `<tr>
-      <td data-label="${esc(t('m_item'))}"><div class="name-cell">${icon(k)}<div><div class="nm" title="${esc(v.name)}">${esc(v.name)}</div><div class="sub">${esc(v.cat)}</div></div></div></td>
+      <td data-label="${esc(t('m_item'))}"><div class="name-cell">${icon(k)}<div><div class="nm" lang="en" title="${esc(v.name)}">${esc(v.name)}</div><div class="sub">${esc(v.cat)}</div></div></div></td>
       <td data-label="${esc(t('ask'))}" class="num num-cell">${fmt(v.p)}</td>
       <td data-label="${esc(t('m_chg'))}" class="num num-cell ${cls(v.chg)}">${spctChg(v.chg)}</td>
       <td data-label="${esc(t('trend7'))}" class="num num-cell ${cls(c7)} hide-mobile">${c7 == null ? '–' : spct(c7)}</td>
@@ -781,6 +781,16 @@ async function init() {
   window.addEventListener('popstate', tabFromHash);
   window.addEventListener('resize', () => syncDrawer(false));
   document.addEventListener('keydown', e => {
+    if (e.key === 'Tab' && $('sidebar').classList.contains('open')) {
+      const f = [...$('sidebar').querySelectorAll('button, select, input, [href], [tabindex]:not([tabindex="-1"])')]
+        .filter(el => !el.disabled && el.offsetParent !== null);
+      if (f.length) {
+        const first = f[0], last = f[f.length - 1];
+        if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+        else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+        else if (!f.includes(document.activeElement)) { e.preventDefault(); first.focus(); }
+      }
+    }
     if (e.key !== 'Escape') return;
     for (const [btn, pop] of [[$('oppFilterBtn'), $('oppFilterPop')], [$('columnsBtn'), $('columnsPop')]]) {
       if (btn && pop && !pop.hidden) {
