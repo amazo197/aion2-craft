@@ -50,7 +50,10 @@ const spark = k => {
   const mn = Math.min(...vals), mx = Math.max(...vals), w = 90, h = 18, rng = mx - mn || 1;
   const pts = s.map((v, i) => v == null ? null : [(i / (s.length - 1)) * w, h - 1 - ((v - mn) / rng) * (h - 2)])
     .filter(Boolean).map(p => p[0].toFixed(1) + ',' + p[1].toFixed(1)).join(' ');
-  return `<svg class="spark" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" aria-hidden="true"><polyline points="${pts}" fill="none" stroke="var(--accent)" stroke-width="1.5"/></svg>`;
+  const lastIdx = s.reduce((acc, v, i) => v != null ? i : acc, -1);
+  const lx = lastIdx < 0 ? 0 : (lastIdx / (s.length - 1)) * w;
+  const ly = lastIdx < 0 ? 0 : h - 1 - ((s[lastIdx] - mn) / rng) * (h - 2);
+  return `<svg class="spark" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" aria-hidden="true"><polyline points="${pts}" fill="none" stroke="var(--accent)" stroke-width="1.5"/><circle cx="${lx.toFixed(1)}" cy="${ly.toFixed(1)}" r="2" fill="var(--accent)"/></svg>`;
 };
 const HOW = { buy: 'how_buy', craft: 'how_craft', 'craft-combo': 'how_combo', npc: 'how_npc', morph: 'how_morph' };
 
@@ -415,10 +418,11 @@ function renderChips() {
   if (!f.afford) chips.push(['afford', t('only_afford')]);
   if (!f.verified) chips.push(['verified', t('only_verified')]);
   if (f.minGone > 1) chips.push(['minGone', t('min_units_short') + ' > ' + f.minGone]);
-  $('oppChips').innerHTML = chips.map(([k, label]) => `<button type="button" class="chip-filter" onclick="removeFilter('${k}')">${esc(label)} <span aria-hidden="true">✕</span></button>`).join('');
+  $('oppChips').innerHTML = chips.map(([k, label]) => `<button type="button" class="chip-filter" onclick="removeFilter('${k}')">${esc(label)} <span aria-hidden="true">×</span></button>`).join('');
   const nonDefault = (f.positive ? 1 : 0) + (!f.listed ? 1 : 0) + (!f.afford ? 1 : 0) + (!f.verified ? 1 : 0) + (f.minGone !== 1 ? 1 : 0);
   $('oppFilterCount').textContent = nonDefault;
   $('oppFilterCount').className = 'badge ' + (nonDefault ? 'info' : 'neutral');
+  $('oppFilterCount').style.display = nonDefault ? '' : 'none';
 }
 window.removeFilter = k => {
   const el = { positive: 'onlyPositive', listed: 'onlyListed', afford: 'onlyAfford', verified: 'onlyVerified' }[k];
@@ -475,7 +479,7 @@ function headHtml(cols, sort, tab, labels) {
     if (!c.k || c.sortable === false) return `<th scope="col" class="${isNum ? 'num' : ''}">${esc(t(labels ? labels[c.k] : c.l))}</th>`;
     const active = sort.key === c.k;
     const aria = active ? (sort.dir < 0 ? 'descending' : 'ascending') : 'none';
-    return `<th scope="col" class="${isNum ? 'num' : ''}" aria-sort="${aria}"><button type="button" class="th-sort" data-key="${esc(c.k)}" onclick="setSort('${tab}','${c.k}')">${esc(t(labels ? labels[c.k] : c.l))}<span class="arrow" aria-hidden="true">${active ? (sort.dir < 0 ? '▾' : '▴') : ''}</span></button></th>`;
+    return `<th scope="col" class="${isNum ? 'num' : ''}" aria-sort="${aria}"><button type="button" class="th-sort" data-key="${esc(c.k)}" onclick="setSort('${tab}','${c.k}')">${esc(t(labels ? labels[c.k] : c.l))}<span class="arrow" aria-hidden="true">${active ? (sort.dir < 0 ? '↓' : '↑') : ''}</span></button></th>`;
   }).join('') + '</tr></thead>';
 }
 function skeleton(rows, cols) {
@@ -491,7 +495,7 @@ function moreLabel(shown, total) {
 }
 function statusBadges(r) {
   const b = [];
-  if (r.transfer) b.push(`<span class="badge info" title="${esc(t('transfer_title'))}">${esc(t('transfer'))}</span>`);
+  if (r.transfer) b.push(`<span class="status-note" title="${esc(t('transfer_title'))}">${esc(t('transfer'))}</span>`);
   if (r.outlier) b.push(`<span class="badge danger" title="${esc(t('outlier_title'))}">${esc(t('outlier'))}</span>`);
   else if (r.unverified) b.push(`<span class="badge warn" title="${esc(t('unverified_title'))}">${esc(t('unverified'))}</span>`);
   if (r.capped) b.push(`<span class="badge warn" title="${esc(t('cap_title'))}">${esc(t('capped'))}</span>`);
