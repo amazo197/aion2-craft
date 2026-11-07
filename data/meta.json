@@ -1,5 +1,5 @@
 {
- "baked_at": "2026-11-07T16:53:32Z",
+ "baked_at": "2026-11-07T20:57:10Z",
  "servers": {
   "11101": {
    "items": 941,
@@ -12,18 +12,18 @@
    "has_sales": false
   },
   "11304": {
-   "items": 971,
+   "items": 972,
    "history": 0,
    "has_sales": true
   },
   "12101": {
-   "items": 988,
+   "items": 989,
    "history": 0,
    "has_sales": false
   },
   "12302": {
-   "items": 988,
-   "history": 261,
+   "items": 990,
+   "history": 260,
    "has_sales": false
   }
  }
